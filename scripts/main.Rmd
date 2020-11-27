@@ -1,0 +1,75 @@
+---
+title: "main"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Packages
+
+```{r}
+library(pacman)
+
+p_load("tidyverse",
+       "readxl",
+       "here",
+       "janitor",
+       "stringi"
+       )
+
+
+
+```
+
+## 
+
+
+```{r}
+df_raw <- read_excel(here("data/EPICO19_-_all_versions_26 11 approved.xlsx"), sheet = 2)
+
+# read in clean names and replace
+data_dict <- read_excel(here("data/EPICO19_-_all_versions_26 11 approved.xlsx"), sheet = 3, range = "A1:D366")
+oldnames <- data_dict$raw_name
+newnames <- paste0(data_dict$clean_name, data_dict$`redundant?`) %>% str_replace("NA", "")
+
+
+df <- sero_raw %>% 
+  rename_with( .cols = oldnames, .fn = ~ newnames[which(oldnames == .x)]) %>% 
+  select(!contains("unknown") & !contains("redund")  ) %>% 
+  select(where( ~ !(all(is.na(.x)) | all(.x=="")) )) %>% 
+  # remove rows with double slash in id
+  mutate(id_quest = str_replace(id_quest, "//", "/")) %>% 
+  # remove accents
+  mutate(id_quest = stri_trans_general(id_quest, "Latin-ASCII"))  %>% 
+  # separate questionnaire id
+  separate(id_quest, into = c("loc_hhld", "id_letter_hhld", "id_num_hhld" , "id_num_ind"), sep = "/", remove = F)  %>% 
+  mutate(id_hhld = paste(loc_hhld, id_num_hhld, sep = "_")) %>% 
+  mutate(id_ind = paste(loc_hhld, id_num_hhld, sep = "_")) %>% 
+  arrange(loc_hhld, id_num_hhld, id_num_ind ) %>% 
+  select()
+  
+
+
+Titanic %>% 
+  as_tibble() %>% 
+  group_by(Age, Survived) %>% 
+  summarise(n = sum(n)) %>% 
+  ggplot(aes( x = Survived, y = n, color = Age)) + 
+  geom_col()
+  
+# 
+# #summary
+#   group_by(id_hhld) %>% 
+#   summarise(n_positive = sum(cat_igg_result == "positif" | cat_igm_result == "positif"), 
+#             n_in_hhld = length(unique(id_num_ind)), 
+#             frac_hhld_positive = n_positive/n_in_hhld
+#             ) %>% 
+#   ggplot() + 
+#   geom_histogram(aes(frac_hhld_positive))
+# 
+
+```
+
