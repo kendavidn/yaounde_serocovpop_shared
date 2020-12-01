@@ -1,0 +1,549 @@
+---
+title: "Univariate plots of Yaounde COVID study data"
+
+
+### Options for outputting HTML
+# 
+# output:
+#   rmarkdown::html_document:
+#     theme: cerulean
+#     toc: true
+#     toc_depth: 2
+#     toc_float: true
+# 
+
+
+### Options for outputting PDF
+output:
+  bookdown::pdf_document2:
+    toc: true
+    latex_engine: xelatex
+    includes:
+      in_header: preamble.tex
+mainfont: Garamond
+fontsize: 11pt
+geometry: left=2cm,right=2cm,top=2.5cm,bottom=2cm
+
+
+## Other options
+editor_options: 
+  chunk_output_type: console
+params: 
+  mode: "pdf"
+---
+
+\newpage
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = F, message = F, 
+                      fig.width = 6, 
+                      fig.asp = 0.618, 
+                      out.width = "70%",
+                      fig.align = "center" )
+
+# params$mode <- "pdf"
+
+library(pacman)
+
+p_load("tidyverse",
+       "readxl",
+       "here",
+       "janitor",
+       "stringi",
+       "usethis",
+       "renv",
+       "plotly",
+       "vegan",
+       "reshape2",
+       "viridis",
+       "GGally",
+       "heatmaply",
+       "superheat",
+       "styler",
+       "paletteer",
+       "scales",
+       "ggtext",
+       "patchwork",
+       "purrr",
+       "scales",
+       "lubridate",
+       "highcharter",
+       "leaflet",
+       "ExPanDaR",
+       "ggupset",
+       "gridExtra",
+       "UpSetR", 
+       "magrittr"
+       )
+
+# usethis::use_github(protocol = "https", auth_token = Sys.getenv("GITHUB_PAT"))
+
+# 
+# # palette
+# my_palette <- c("#56bfa3", "#f79f57" ,"#7570B3","#56B4E9",  #greenblue #lightorange #purplepastel  #lightblue
+#                 "#3758a6" , "#CC79A7" , "#91142c", "#eb4034", #darkblue #pinkpurple #wine #orange
+#                 "#a3b0c4", "#870476", "#479444", "#3cd6d6" ) # grey, # royalpurple #darkgreen # cyan
+# 
+my_palette <- paletteer_d("awtools::bpalette") %>% as.character() %>% str_sub(end = 7)
+
+scale_colour_discrete <- function(...) {
+  scale_colour_manual(..., values = my_palette)
+}
+
+scale_fill_discrete <- function(...) {
+  scale_fill_manual(..., values = my_palette)
+}
+
+
+# theme
+my_theme <- theme_classic() +
+  theme(text = element_text(color = "gray10", size = 12.5),
+        rect = element_blank(), # transparent background
+        plot.title = (element_text(face = "bold", hjust = 0.5, size = 13)),
+        plot.subtitle = (element_text( hjust = 0.5, size = 8, color = alpha("black", 0.7))),
+        plot.caption = element_text(size = 6.5, color = "gray50", hjust = 1),
+        legend.position = "bottom",
+        legend.text = element_text(size = 8),
+        legend.key.size = unit(1,"line"),
+        axis.title = element_text( color = alpha("black", 0.8), size = 10),
+        axis.text = element_text(color = alpha("gray5", 0.7), size = 9 ),
+        axis.line = element_line(color = "gray40", size = 0.5),
+        axis.line.y = element_blank(),
+        panel.grid.major = element_line(color = alpha("gray50", 0.1), size = 0.25), 
+        strip.background = element_rect(fill=alpha("#0070c0", 1), color = "transparent"),
+        strip.text = element_text(face = "bold", colour = 'white'),
+        panel.spacing.x = unit(3, "mm"), 
+        title = element_text(face = "bold"))
+theme_set(my_theme)
+
+options(scipen=999) # turn off scientific notation
+
+options(tibble.print_max = 30, tibble.print_min = 30)
+
+```
+
+```{r utilityFunctions}
+
+printpick <- function(p) {
+  if (params == "html") {
+    ggplotly(p)
+  } else {
+    p
+  }
+}
+
+
+countprop <- function(df, col, fct_reorder = T, fct_inseq = F, date_parse = F) {
+  out <- df %>%
+    count({{ col }}) %>%
+    mutate(prop = n / sum(unique(n))) %>%
+    group_by({{ col }}) %>%
+    mutate(countprop = paste0("**", n, "**", ",<br>", "<span style='color:gray30'>", round(100 * prop, 1), "%", "</span>")) %>% 
+    ungroup()
+  # See https://dplyr.tidyverse.org/articles/programming.html
+  # If you want to use the names of variables in the output, you can use glue syntax in conjunction with :=
+
+  if (fct_reorder == T) {
+    out <- out %>%
+      mutate("{{col}}" := as.factor({{ col }})) %>%
+      mutate("{{col}}" := fct_reorder({{ col }}, n))
+  }
+  if (fct_inseq == T) {
+    out <- out %>%
+      mutate("{{col}}" := fct_inseq({{ col }}, n))
+  }
+  if (date_parse == T) {
+    out <- out %>%
+      mutate("{{col}}" := as_date({{ col }}))
+  }
+
+  return(out)
+}
+
+
+# ~~ Rename for countplot axis function ---------------------------
+
+
+rename_for_countplot_axis <- function(df) {
+  the_clean_name <- names(df)[1]
+  cleaned_name <- axis_name[which(clean_name == the_clean_name)]
+  out <-
+    df %>%
+    rename_with(.cols = 1, .fn = ~cleaned_name)
+  return(out)
+}
+
+
+# ~~ Count plot function ---------------------------
+
+countplot_with_fill <- function(df, col) {
+  out <-
+    df %>%
+    # clean axis name
+    # NOTE that if you delete any columns from the df, the line below will not work
+    #    rename_with(.cols = any_of(clean_name), .fn = ~ axis_name[which(clean_name == .x)]   ) %>%
+    ggplot() +
+    geom_col(aes(x = {{ col }}, y = n, fill = {{ col }})) +
+    geom_richtext(aes(x = {{ col }}, y = n, label = countprop), size = 3, alpha = 0.85) +
+    theme(legend.position = "none")
+
+  return(out)
+}
+
+countplot_no_fill <- function(df, col) {
+  out <-
+    df %>%
+    # clean axis name
+    # NOTE that if you delete any columns from the df, the line below will not work
+    #    rename_with(.cols = any_of(clean_name), .fn = ~ axis_name[which(clean_name == .x)]   ) %>%
+    ggplot() +
+    geom_col(aes(x = {{ col }}, y = n), fill = "skyblue2") +
+    geom_richtext(aes(x = {{ col }}, y = n, label = countprop), size = 3, alpha = 0.85) +
+    theme(legend.position = "none")
+
+  return(out)
+}
+
+
+# ~~ Count plot print function ---------------------------
+
+
+countplotprint <- function(df, col, flip = F, fct_reorder = F, fct_inseq = F,
+                           date_parse = F, multi_color = F) {
+  
+  ## summarise then rename the variables
+  df1 <- df %>%
+    countprop({{ col }}, fct_reorder = fct_reorder, fct_inseq = fct_inseq, date_parse = date_parse) %>%
+    rename_for_countplot_axis()
+
+  ## extract variable name to pass to plot function
+  the_axis_name <- names(df1)[1]
+
+  ## if else statement for. Multicolored or no
+  if (multi_color == T){
+    p <- df1 %>%
+      countplot_with_fill(.data[[the_axis_name]]) +
+      coord_cartesian(clip = "off")
+  } else {
+    p <- df1 %>%
+      countplot_no_fill(.data[[the_axis_name]]) +
+      coord_cartesian(clip = "off")
+  }
+  
+  ## coord_flip if requested
+  if (flip == T) {
+    p <- p + suppressWarnings(coord_flip(clip = "off"))
+  }
+  
+  ## print pdf or html function
+    printpick(p)
+}
+
+```
+
+```{r readData}
+yao_raw <- read_xlsx(here("data/EPICO19_-_all_versions_26 11 approved.xlsx"), sheet = 2)
+
+## read in clean names and replace
+data_dict <- read_excel(here("data/EPICO19_-_all_versions_26 11 approved.xlsx"), sheet = 3, range = "A1:D366")
+
+raw_name <- data_dict$raw_name
+clean_name <- data_dict$clean_name
+axis_name <- data_dict$axis_name 
+pivot_name <- data_dict$pivot_name
+
+# clean_name <- paste0(data_dict$clean_name, data_dict$`redundant?`) %>% str_replace("NA", "")
+
+
+yao <-
+  yao_raw %>%
+  ## rename to new names
+  rename_with(.cols = any_of(raw_name), .fn = ~ clean_name[which(raw_name == .x)]) %>%
+  # select(where( ~ !(all(is.na(.x)) | all(.x=="")) )) %>%
+  ## remove rows with double slash in id
+  mutate(id_quest = str_replace(id_quest, "//", "/")) %>%
+  ## remove accents
+  mutate(id_quest = stri_trans_general(id_quest, "Latin-ASCII")) %>%
+  ## replace ne repond pas with NR
+  mutate(across(.fns = ~ str_replace_all(.x, "ne_r_pond_pas__inappropri__ne_sait_pas__", "NR"))) %>%
+  ## separate questionnaire id then recombine to form unique household id and individual id
+  separate(id_quest, into = c("loc_hhld", "id_hhld_letter", "id_hhld_num", "id_ind_num"), sep = "/", remove = F) %>%
+  mutate(loc_hhld = str_replace_all(loc_hhld, "NKOMNKANA", "NKOMKANA")) %>%
+  mutate(id_hhld = paste(loc_hhld, id_hhld_num, sep = "_")) %>%
+  mutate(id_ind = paste(loc_hhld, id_hhld_num, id_ind_num, sep = "_")) %>%
+  relocate(id_hhld, id_ind, .before = everything()) %>%
+  ## arrange by these ids
+  arrange(loc_hhld, id_hhld_num, id_ind_num) %>%
+  filter(id_quest != "MOKOLO/KAR/013/0003") %>%
+  ###### Clean multi-answer columns
+  # breadwinner category
+  separate(cat_breadwin, sep = " ", into = as.character(paste0("seper_", 1:20))) %>%
+  mutate(across(
+    .cols = matches("seper_"),
+    .fns = function(.x) {
+      .x <- case_when(
+        str_detect(.x, "ne_peut_pas_r_pondre") ~ "NR",
+        str_detect(.x, "p_re") ~ "father",
+        str_detect(.x, "m_re") ~ "mother",
+        str_detect(.x, "autres_membres_de_la_fam") ~ "other_fam",
+        str_detect(.x, "hors_de_la_famille") ~ "external",
+        TRUE ~ "NA"
+      )
+    }
+  )) %>%
+  mutate(across(.cols = matches("seper_"), .fns = ~ ifelse(.x == "NA", NA, .x))) %>%
+  unite("cat_breadwin", matches("seper_"), na.rm = TRUE, sep = " ")
+
+
+```
+
+# Administration of questionnaire
+
+## 1.1 Is this the original sampled household?
+
+```{r}
+yao %>% countplotprint(is_hhld_samp)
+```
+
+**NOTE** It is not clear to me whether 0 means "original" or "replacement".
+
+## 1.3 Which surveyors administered the questionnaire?
+
+```{r}
+yao %>% countplotprint(name_researcher, fct_reorder = T, flip = T)
+```
+
+## 1.4 Date of survey completion
+
+```{r fig.height=6}
+
+yao %>% 
+  countplotprint(dt_quest, date_parse = T, flip = T) + 
+  scale_x_date(date_labels = "%a %b %d", date_breaks = "1 day", expand = c(0,0) ) + 
+  scale_fill_viridis(begin = 0.3, end = 0.3)
+
+```
+
+## 1.5 City Area
+
+```{r}
+yao %>% countplotprint(loc_hhld_area,  fct_reorder = T, flip = T)
+```
+
+# Household Composition
+
+## GPS location
+
+```{r}
+for_map <- yao %>% 
+  mutate(loc_hhld_lat = as.numeric(loc_hhld_lat), 
+         loc_hhld_long = as.numeric(loc_hhld_long))
+
+
+leaflet(options = leafletOptions(preferCanvas = TRUE) ) %>%
+  addTiles() %>% 
+  # Customers
+  addMarkers(data = for_map, 
+             lat = ~ loc_hhld_lat, 
+             lng = ~ loc_hhld_long,
+             clusterOptions = markerClusterOptions())  %>% 
+  addCircleMarkers(data = for_map, lat = ~ loc_hhld_lat, lng = ~ loc_hhld_long, color = "black", radius = 2 ) 
+
+```
+
+```{r, eval=(params$mode == "pdf")}
+
+cat("**NOTE** The map above is a screenshot of an interactive web map. 
+    See the html version of this report to access map")
+
+```
+
+## Number of rooms
+
+```{r}
+
+yao %>% countplotprint(n_hhld_rooms, fct_inseq = T, flip = F) 
+
+```
+
+## 2.4 Number of adults
+
+```{r}
+yao %>% 
+  countplotprint(n_hhld_persons, fct_inseq = T, flip = F) 
+```
+
+## 2.5 Number of children 
+
+```{r}
+yao %>%  
+  countplotprint(n_hhld_children, fct_inseq = T, flip = F)
+```
+
+
+## 3 Deaths since March 1st
+
+```{r}
+yao %>%  
+  countplotprint(has_hhld_death, flip = F)
+```
+
+**NOTE** Here, NA means the cell was completely blank. NR means it was filled in as "Ne repond pas"
+
+# Information about household 
+
+## 3.1 Are you the "Chef du menage"?
+
+```{r}
+yao %>% countplotprint(is_head, fct_reorder = T) 
+```
+
+
+## 3.2 Are you the principal revenue source? 
+
+```{r}
+yao %>% 
+  countplotprint(is_breadwin, fct_reorder = T) 
+```
+
+
+## 3.3 Who is the principal revenue source ?
+
+```{r}
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~  Calculate intersection size----
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+intersect_size <-
+  yao %>%
+  count(cat_breadwin) %>%
+  mutate(prop = n / sum(unique(n))) %>%
+  mutate(countprop = paste0("**", n, "**", ",<br>", "<span style='color:gray30'>", 
+                            round(100 * prop, 1), "%", "</span>")) %>% 
+  mutate(cat_breadwin = fct_reorder(cat_breadwin, -n)) %T>% 
+  {.[1] %>% pull() %>% levels() ->> intersect_size_order}
+
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~  Calculate set size  ----
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+set_size <- 
+  yao %>% 
+  select(id_ind, cat_breadwin) %>% 
+  separate_rows(cat_breadwin,sep = " ") %>% 
+  count(cat_breadwin) %>% 
+  mutate(cat_breadwin = fct_reorder(cat_breadwin, n)) %>%
+  mutate(prop = n / length(unique(yao$id_ind))) %>%
+  mutate(countprop = paste0("**", n, "**", ",<br>", "<span style='color:gray30'>", 
+                            round(100 * prop, 1), "%", "</span>")) %T>% 
+  {.[1] %>% pull() %>% levels() ->> set_size_order}
+  
+ # %>% levels() %>% rev() 
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~  Derive intersection matrix ----
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+## extract column names for upset data frame
+
+set_names <- 
+  intersect_size[,1] %>% 
+  mutate(cat_breadwin = as.character(cat_breadwin)) %>% 
+  separate_rows(1, sep = " ") %>% 
+  pull(1) %>% unique()
+
+##  convert from tibble to df, fill in df then back to tibble
+
+intersect_matrix_init <- data.frame(intersect_size[,1])
+
+for (row in 1:nrow(intersect_matrix_init)) {
+  for (i in set_names) {
+    if (str_detect(intersect_matrix_init[row, 1], i)) {
+      intersect_matrix_init[row, i] <- 1
+    }
+  }
+}
+
+intersect_matrix <- 
+  intersect_matrix_init %>% 
+  as_tibble() %>% 
+  mutate(across(.cols = 2:ncol(.), .fns = ~ replace_na(.x, 0))) %>% 
+  pivot_longer(cols = 2:ncol(.), names_to = "set") %>% 
+  mutate(cat_breadwin = factor(cat_breadwin, levels = intersect_size_order )) %>% 
+  mutate(set = factor(set, levels = set_size_order ) )
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~  Plot data ----
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  
+intersect_matrix_plot <- 
+  intersect_matrix %>% 
+  ggplot() + 
+  geom_tile(aes(y = set , x = cat_breadwin, fill = value)) + 
+  theme(legend.position = "none")
+
+
+intersect_size_plot <- 
+  intersect_size %>% 
+  ggplot() +
+  geom_col(aes(x = cat_breadwin, y = n), fill = "skyblue3") +
+  geom_richtext(aes(x = cat_breadwin , y = n, label = countprop), size = 3, alpha = 0.85, vjust = -0.2 ) +
+  scale_y_discrete(expand = expansion(mult = c(0, 0.07))) +
+  scale_x_discrete(expand = expansion(mult = c(0, 0))) +
+  coord_cartesian(clip = "off") +
+  theme(
+    axis.text.x = element_blank(),
+    axis.title.x = element_blank(),
+    axis.line.x.bottom = element_blank(),
+    axis.ticks.x.bottom = element_blank()
+  )
+
+
+set_size_plot <-  
+  set_size %>% 
+  ggplot() +
+  geom_col(aes(x = cat_breadwin, y = n), fill = "skyblue3") +
+  geom_richtext(aes(x = cat_breadwin , y = n, label = countprop), size = 3, alpha = 0.85, hjust = 1 ) +
+  scale_x_discrete(expand = expansion(mult = c(0, 0))) +
+  scale_y_reverse(expand = expansion(mult = c(0.2, 0))) +
+  coord_flip(clip = "off") +
+  theme(
+    axis.text.x = element_blank(),
+    axis.title.x = element_blank(),
+    axis.line.x.bottom = element_blank(),
+    axis.ticks.x.bottom = element_blank()
+  )
+
+
+layout <- c(
+  area(1, 1, 5, 3), # spacer
+  area(1, 4, 5, 10), # intersection size (top right)
+  area(6, 1, 7, 3), # set size (bottom left)
+  area(6, 4, 7, 10) # intersection matrix (bottom right)
+)
+
+plot(layout)
+
+plot_spacer() + 
+  intersect_size_plot + 
+  set_size_plot + 
+  intersect_matrix_plot + 
+  plot_layout(design = layout)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -44,7 +44,7 @@ p_load("tidyverse",
 ```{r}
 df_raw <- read_excel(here("data/EPICO19_-_all_versions_26 11 approved.xlsx"), sheet = 2)
 
-# read in clean names and replace
+## read in clean names and replace
 data_dict <- read_excel(here("data/EPICO19_-_all_versions_26 11 approved.xlsx"), sheet = 3, range = "A1:D366")
 
 oldnames <- data_dict$raw_name
@@ -55,16 +55,17 @@ newnames <- data_dict$clean_name
 
 df <- 
   df_raw %>% 
+  ## rename to new names
   rename_with( .cols = any_of(oldnames), .fn = ~ newnames[which(oldnames == .x)]) %>% 
   select(!contains("unknown") # & 
            # !contains("redund")  
          ) %>% 
-  select(where( ~ !(all(is.na(.x)) | all(.x=="")) )) %>% 
-  # remove rows with double slash in id
+  # select(where( ~ !(all(is.na(.x)) | all(.x=="")) )) %>% 
+  ## remove rows with double slash in id
   mutate(id_quest = str_replace(id_quest, "//", "/")) %>% 
-  # remove accents
+  ## remove accents
   mutate(id_quest = stri_trans_general(id_quest, "Latin-ASCII"))  %>% 
-  # separate questionnaire id then recombine to form unique household id and individual id
+  ## separate questionnaire id then recombine to form unique household id and individual id
   separate(id_quest, into = c("loc_hhld", "id_hhld_letter", "id_hhld_num" , "id_ind_num"), sep = "/", remove = F)  %>% 
   mutate(loc_hhld = str_replace_all(loc_hhld, "NKOMNKANA", "NKOMKANA")) %>% 
   mutate(id_hhld = paste(loc_hhld, id_hhld_num, sep = "_")) %>% 
@@ -72,6 +73,8 @@ df <-
   relocate(id_hhld, id_ind,  .before = everything()) %>% 
   arrange(loc_hhld, id_hhld_num, id_ind_num ) %>% 
   filter(id_quest != "MOKOLO/KAR/013/0003")
+
+df_raw$group_fl2ht56_deces_1_note
 ```
 
 
@@ -81,7 +84,7 @@ df <-
 symp_clean <- df %>%
   # sample_n(100) %>%
   # select columns concerning symptoms
-  select(id_ind, matches("has_symp")) %>%
+  select(id_ind, matches("has_symp_")) %>%
   # drop "none" and "other" levels
   select(!matches("none|other"))  %>%
   # melt

@@ -1,0 +1,50 @@
+% !TEX TS-program = pdflatex
+% !TEX encoding = UTF-8 Unicode
+
+% This is a simple template for a LaTeX document using the "article" class.
+% See "book", "report", "letter" for other types of document.
+
+% for color boxes
+\RequirePackage{tcolorbox}
+
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+
+
+
+% Colors
+%--------------------------------------------------------------------------
+\RequirePackage{xcolor}
+\definecolor{tsorange}{RGB}{255,138,88}
+\definecolor{tssteelblue}{RGB}{70,130,180}
+\definecolor{tsorange}{RGB}{255,138,88}
+\definecolor{tsblue}{RGB}{23,74,117}
+\definecolor{tsforestgreen}{RGB}{21,122,81}
+\definecolor{tsyellow}{RGB}{255,185,88}
+\definecolor{tsgrey}{RGB}{200,200,200}
+
+
+
+% Environments
+%--------------------------------------------------------------------------
+\newenvironment{orangebox}
+{\begin{tcolorbox}
+[colback=black!5,colframe=tsorange]}
+{\end{tcolorbox}}
+
+
+\newenvironment{bluebox}
+{\begin{tcolorbox}
+[colback=tsblue!5,colframe=tssteelblue]}
+{\end{tcolorbox}}
+
+
+%  paragraph spacing
+\setlength{\parskip}{0.44cm plus4mm minus3mm}
+
+
+% Page number
+\fancyhead[LE,RO]{Page \thepage}
+\fancyhead[LE,LO]{EpiCo19 Yaounde Study}
+\fancyfoot{}
+
