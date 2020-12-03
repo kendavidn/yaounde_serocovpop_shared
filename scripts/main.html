@@ -452,7 +452,7 @@ p_load(&quot;tidyverse&quot;,
 <h2>Read data, clean</h2>
 <pre class="r"><code>df_raw &lt;- read_excel(here(&quot;data/EPICO19_-_all_versions_26 11 approved.xlsx&quot;), sheet = 2)
 
-# read in clean names and replace
+## read in clean names and replace
 data_dict &lt;- read_excel(here(&quot;data/EPICO19_-_all_versions_26 11 approved.xlsx&quot;), sheet = 3, range = &quot;A1:D366&quot;)
 
 oldnames &lt;- data_dict$raw_name
@@ -463,30 +463,45 @@ newnames &lt;- data_dict$clean_name
 
 df &lt;- 
   df_raw %&gt;% 
+  ## rename to new names
   rename_with( .cols = any_of(oldnames), .fn = ~ newnames[which(oldnames == .x)]) %&gt;% 
   select(!contains(&quot;unknown&quot;) # &amp; 
            # !contains(&quot;redund&quot;)  
          ) %&gt;% 
-  select(where( ~ !(all(is.na(.x)) | all(.x==&quot;&quot;)) )) %&gt;% 
-  # remove rows with double slash in id
+  # select(where( ~ !(all(is.na(.x)) | all(.x==&quot;&quot;)) )) %&gt;% 
+  ## remove rows with double slash in id
   mutate(id_quest = str_replace(id_quest, &quot;//&quot;, &quot;/&quot;)) %&gt;% 
-  # remove accents
+  ## remove accents
   mutate(id_quest = stri_trans_general(id_quest, &quot;Latin-ASCII&quot;))  %&gt;% 
-  # separate questionnaire id then recombine to form unique household id and individual id
+  ## separate questionnaire id then recombine to form unique household id and individual id
   separate(id_quest, into = c(&quot;loc_hhld&quot;, &quot;id_hhld_letter&quot;, &quot;id_hhld_num&quot; , &quot;id_ind_num&quot;), sep = &quot;/&quot;, remove = F)  %&gt;% 
   mutate(loc_hhld = str_replace_all(loc_hhld, &quot;NKOMNKANA&quot;, &quot;NKOMKANA&quot;)) %&gt;% 
   mutate(id_hhld = paste(loc_hhld, id_hhld_num, sep = &quot;_&quot;)) %&gt;% 
   mutate(id_ind = paste(loc_hhld, id_hhld_num, id_ind_num,  sep = &quot;_&quot;)) %&gt;% 
   relocate(id_hhld, id_ind,  .before = everything()) %&gt;% 
   arrange(loc_hhld, id_hhld_num, id_ind_num ) %&gt;% 
-  filter(id_quest != &quot;MOKOLO/KAR/013/0003&quot;)</code></pre>
+  filter(id_quest != &quot;MOKOLO/KAR/013/0003&quot;)
+
+df_raw$group_fl2ht56_deces_1_note</code></pre>
+<pre><code>##   [1] NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA
+##  [26] NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA
+##  [51] NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA
+##  [76] NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA
+## [101] NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA
+## [126] NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA
+## [151] NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA
+## [176] NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA
+## [201] NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA
+## [226] NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA
+## [251] NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA NA
+## [276] NA NA NA NA NA NA NA NA NA NA NA</code></pre>
 </div>
 <div id="analysis-of-symptoms" class="section level2">
 <h2>Analysis of symptoms</h2>
 <pre class="r"><code>symp_clean &lt;- df %&gt;%
   # sample_n(100) %&gt;%
   # select columns concerning symptoms
-  select(id_ind, matches(&quot;has_symp&quot;)) %&gt;%
+  select(id_ind, matches(&quot;has_symp_&quot;)) %&gt;%
   # drop &quot;none&quot; and &quot;other&quot; levels
   select(!matches(&quot;none|other&quot;))  %&gt;%
   # melt

@@ -1,0 +1,138 @@
+---
+title: "Univariate plots of Yaounde COVID study data"
+
+
+### Options for outputting HTML
+# 
+# output:
+#   rmarkdown::html_document:
+#     theme: cerulean
+#     toc: true
+#     toc_depth: 2
+#     toc_float: true
+# 
+
+
+# Options for outputting PDF
+# output:
+#   bookdown::pdf_document2:
+#     toc: true
+#     number_sections: false
+#     latex_engine: xelatex
+#     includes:
+#       in_header: preamble.tex
+# mainfont: Avenir
+# fontsize: 10pt
+# geometry: left=2cm,right=2cm,top=2.5cm,bottom=2cm
+
+output: word_document
+
+## Other options
+editor_options: 
+  chunk_output_type: console
+params: 
+  mode: "word"
+---
+
+\newpage
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = F, message = F, dpi = 300,
+                      fig.width = 6, 
+                      fig.height = 2,
+                      fig.align = "center" )
+
+# params$mode <- "pdf"
+
+library(pacman)
+
+p_load(
+       "readxl",
+       "here",
+       "janitor",
+       "stringi",
+       "gt", 
+       "huxtable",
+       "tidyverse"
+       )
+# 
+# 
+# # usethis::use_github(protocol = "https", auth_token = Sys.getenv("GITHUB_PAT"))
+# 
+# # 
+# # # palette
+# # my_palette <- c("#56bfa3", "#f79f57" ,"#7570B3","#56B4E9",  #greenblue #lightorange #purplepastel  #lightblue
+# #                 "#3758a6" , "#CC79A7" , "#91142c", "#eb4034", #darkblue #pinkpurple #wine #orange
+# #                 "#a3b0c4", "#870476", "#479444", "#3cd6d6" ) # grey, # royalpurple #darkgreen # cyan
+# # 
+# my_palette <- paletteer_d("awtools::bpalette") %>% as.character() %>% str_sub(end = 7)
+# 
+# scale_colour_discrete <- function(...) {
+#   scale_colour_manual(..., values = my_palette)
+# }
+# 
+# scale_fill_discrete <- function(...) {
+#   scale_fill_manual(..., values = my_palette)
+# }
+# 
+# 
+# # theme
+# my_theme <- theme_classic() +
+#   theme(text = element_text( size = 12.5),
+#         rect = element_blank(), # transparent background
+#         plot.title = (element_text(face = "bold", hjust = 0.5, size = 13)),
+#         plot.subtitle = (element_text( hjust = 0.5, size = 8, color = alpha("black", 0.7))),
+#         plot.caption = element_text(size = 6.5, color = "gray50", hjust = 1),
+#         legend.position = "bottom",
+#         legend.text = element_text(size = 8),
+#         legend.key.size = unit(1,"line"),
+#         axis.title = element_text(size = 10),
+#         axis.text = element_text(size = 9 ),
+#         axis.line = element_line(color = "gray40", size = 0.5),
+#         axis.line.y = element_blank(),
+#         panel.grid.major = element_line(color = alpha("gray50", 0.1), size = 0.25), 
+#         strip.background = element_blank(),
+#         strip.text = element_text(face = "bold", color = 'white'),
+#         panel.spacing.x = unit(3, "mm"), 
+#         title = element_text(face = "bold"), 
+#         panel.border = element_blank(),
+#         plot.background = element_rect(fill = "#f5f5f5"), 
+#         panel.background = element_rect(fill = "white")
+#         #strip.background = element_blank()
+#         )
+# 
+# theme_set(my_theme)
+# 
+# options(scipen=999) # turn off scientific notation
+# 
+# options(tibble.print_max = 30, tibble.print_min = 30)
+# # 
+# # category_names <- 
+# #   read_excel(here("data/EPICO19_-_all_versions_26 11 approved.xlsx"), sheet = 3) %>% 
+# #   select(raw_name) %>% 
+# #   separate(raw_name, into = c("var", "category"), sep = "/") %>% 
+# #   select(category) 
+# # 
+# # write_excel_csv(category_names, file = here("data/category_names.csv"), na = "")
+# #   
+# 
+
+```
+
+<!-- ```{r utilityFunctions} -->
+<!-- source(here("scripts/utils.R")) -->
+
+<!-- ``` -->
+
+
+```{r}
+
+iris %>% 
+  huxtable() %>% 
+  set_all_padding(1.5) %>% 
+  theme_blue()
+
+  
+
+```
+
