@@ -156,11 +156,15 @@ countplotprint <- function(df, col, flip = F, fct_reorder = F, fct_inseq = F, da
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-plot_upset <- function(df, cat_col, intersect_cutoff = 0, layout = NA, sep = "--",
+plot_upset <- function(df, cat_col, denom = NA, id_col = "id_ind", intersect_cutoff = 0, layout = NA, sep = "--",
                        set_size_lab = "Set size, \n % who ticked this option", 
                        intersect_size_lab = "Intersection size, \n % who ticked this combination"
                        ){
   
+  if(is.na(denom)){
+    denom <- df
+    
+  }
   
   
   # Drop individuals with combinations that occur too infrequently
@@ -182,7 +186,7 @@ plot_upset <- function(df, cat_col, intersect_cutoff = 0, layout = NA, sep = "--
   intersect_size <-
     df_cut %>%
     count({{cat_col}}) %>%
-    mutate(prop = n / length(unique(df$id_ind))) %>%
+    mutate(prop = n / length(unique(df[[id_col]]))) %>%
     mutate(countprop = paste0("**", n, "**", ",<br>", "<span style='color:gray30'>", 
                               round(100 * prop, 0), "%", "</span>")) %>% 
     mutate("{{cat_col}}" := fct_reorder({{cat_col}}, -n)) %T>% 
@@ -202,12 +206,12 @@ plot_upset <- function(df, cat_col, intersect_cutoff = 0, layout = NA, sep = "--
   
   set_size <- 
     df %>% 
-    select(id_ind, {{cat_col}}) %>% 
+    select({{cat_col}}) %>% 
     separate_rows({{cat_col}},sep = sep) %>% 
     count({{cat_col}}) %>% 
     filter({{cat_col}} %in% sets_to_keep) %>% 
     mutate("{{cat_col}}" := fct_reorder({{cat_col}}, n)) %>%
-    mutate(prop = n / length(unique(df$id_ind))) %>%
+    mutate(prop = n / length(unique(denom[[id_col]]))) %>%
     mutate(countprop = paste0("**", n, "**", ", ", "<span style='color:gray30'>", 
                               round(100 * prop, 0), "%", "</span>")) %T>% 
     {.[1] %>% pull() %>% levels() ->> set_size_order}
@@ -348,14 +352,116 @@ plot_upset <- function(df, cat_col, intersect_cutoff = 0, layout = NA, sep = "--
     intersect_size_plot + 
     set_size_plot + 
     intersect_matrix_plot + 
-    plot_layout(design = layout) &  
-    theme(plot.background = element_rect(color = "#f5f5f5"))  
+    plot_layout(design = layout) #&  
+    #theme(plot.background = element_rect(color = "#f5f5f5"))  
   
   
   print(out_p)
   
 }
 
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~  Lang Rei confidence interval ----
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Point and confidence interval estimates of true prevalence
+# from independent binomial samples for the target population, sensitivity and specificity
+lang_rei_CI <-  function(
+  nprev,       # Sample size for prevalence
+  kprev,       # Frequency of positive diagnoses in sample of size nprev
+  nsens,       # Sample size for sensitivity
+  ksens,       # Frequency of positive diagnoses in sample of size nsens
+  nspec,       # Sample size for specificity
+  kspec,       # Frequency of negative diagnoses in sample of size nspec
+  conflevel=.95) # Confidence level
+{
+  # Observed relative frequencies
+  obs.prev = kprev/nprev
+  obs.sens = ksens/nsens
+  obs.spec = kspec/nspec
+  
+  # Rogan-Gladen point estimate of true prevalence
+  est.prev = (obs.prev+obs.spec-1)/(obs.sens+obs.spec-1)
+  est.prev = min(1,max(0,est.prev))
+  
+  # Adjustments
+  zcrit = qnorm((1+conflevel)/2)
+  plus  = 2
+  
+  nprev. = nprev+zcrit^2
+  kprev. = kprev+zcrit^2/2
+  
+  nsens. = nsens+plus
+  ksens. = ksens+plus/2
+  
+  nspec. = nspec+plus
+  kspec. = kspec+plus/2
+  
+  obs.prev. = kprev./nprev.
+  obs.sens. = ksens./nsens.
+  obs.spec. = kspec./nspec.
+  
+  est.prev. = (obs.prev.+obs.spec.-1)/(obs.sens.+obs.spec.-1)
+  
+  # Youden index
+  Youden. = obs.sens.+obs.spec.-1
+  
+  # Standard error of est.prev.
+  se.est.prev. = sqrt(
+    obs.prev.*(1-obs.prev.)/nprev. +
+      obs.sens.*(1-obs.sens.)/nsens. * est.prev.^2 +
+      obs.spec.*(1-obs.spec.)/nspec. * (1-est.prev.)^2
+  )/abs(Youden.)
+  
+  # Shift parameter
+  dprev = 2*zcrit^2*
+    (est.prev.*obs.sens.*(1-obs.sens.)/nsens. - (1-est.prev.)*obs.spec.*(1-obs.spec.)/nspec.)
+  
+  # Adjusted confidence limits
+  LCL = est.prev.+dprev - zcrit*se.est.prev.
+  UCL = est.prev.+dprev + zcrit*se.est.prev.
+  LCL = min(1,max(0,LCL))
+  UCL = min(1,max(0,UCL))
+  
+  return(data.frame(LCL, UCL))
+}
+# 
+# # Example 1.
+# CI_Binom(
+#   nprev=241, # Sample size for prevalence
+#   kprev=5, # Frequency of positive diagnoses in sample of size nprev
+#   nsens=positives, # Sample size for sensitivity
+#   ksens=true_positives, # Frequency of positive diagnoses in sample of size nsens
+#   nspec=negatives, # Sample size for specificity
+#   kspec=true_negatives, # Frequency of negative diagnoses in sample of size nspec
+#   conflevel=.95) # Confidence level
+# 
+# 
+# # se = calculated sensitivity
+# # nse = sample size of positive samples from validation study
+# # sp = calculated specificity
+# # nsp = sample size of negative samples from validation study
+# # ap = apparent prevalence
+# # p = rogan-gladen true prevalence
+# # np = sample size for prevalence
+# # z = critical value
+# 
+# # see equation 16 in https://pubmed.ncbi.nlm.nih.gov/24416798/ for formula
+# lang_rei_CI <- function(se, nse, sp, nsp, ap, p, np, z){
+#   
+#   var_p <- sqrt( (  ((ap*(1-ap))/np) + ((p^2*se*(1-se))/nse) + (1+p)^2 + ((sp*(1-sp))/nsp)    )
+#                  /
+#                    ((se+sp-1)^2)
+#   )
+#   
+#   dp <- 2 * z^2 * (p * ((se*(1-se))/nse) - (1-p)*((sp*(1-sp))/nsp))
+#   
+#   upper_int <- p + dp + (z * sqrt(var_p))
+#   lower_int <- p + dp - (z * sqrt(var_p))
+#   
+#   return(data.frame(upper_int = upper_int, 
+#                     lower_int = lower_int))
+# }
 
 
 # 

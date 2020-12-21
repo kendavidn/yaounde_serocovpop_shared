@@ -1,0 +1,956 @@
+---
+title: "Numbers and figures requested for Prelim report"
+date: "`r Sys.Date()`"
+
+## Options for outputting HTML
+
+# output:
+#   rmarkdown::html_document:
+#     theme: cerulean
+#     toc: true
+#     toc_depth: 2
+#     toc_float: true
+# 
+
+
+# Options for outputting PDF
+output:
+  bookdown::pdf_document2:
+    fig_caption: yes
+    toc: true
+    number_sections: true
+    latex_engine: xelatex
+    includes:
+      in_header: preamble.tex
+mainfont: Avenir
+fontsize: 10pt
+geometry: left=2cm,right=2cm,top=2.5cm,bottom=2cm
+
+
+## Options for outputting Word
+# output: word_document
+# fontsize: 10pt
+
+
+## Other options
+# editor_options: 
+#   chunk_output_type: console
+# params: 
+#   mode: "word"
+---
+
+\newpage
+
+```{r readData}
+library(here)
+source(here("scripts/load.R"))
+```
+
+```{r utilityFunctions}
+source(here("scripts/utils.R"))
+```
+
+# Specific numbers requested
+
+```{r}
+# begin date for survey
+min_dt_quest <- 
+  yao$dt_quest %>% 
+  min(na.rm = T) %>% 
+  format.Date(format = "%d %B")
+
+# end date for survey
+max_dt_quest <- 
+  yao$dt_quest %>% 
+  max(na.rm = T) %>% 
+  format.Date(format = "%d %B, %Y")
+  
+# n of households
+n_hhlds_included <- 
+  yao$id_hhld %>% 
+    unique() %>% 
+    length()
+
+# n of individuals    
+n_ind_included <- 
+  yao$id_ind %>% 
+    unique() %>% 
+    length()
+
+# mean adults per hhld
+mean_n_adults_per_hhld <- 
+  yao_hhld$n_hhld_adults %>% 
+  mean() %>% 
+  round(1)
+  
+# mean children per hhld
+mean_n_children_per_hhld <- 
+  yao_hhld$n_hhld_children %>% 
+  mean() %>% 
+  round(1)
+
+# number of households without a head
+n_hhlds_w_o_head <- 
+  yao %>% 
+  group_by(id_hhld) %>% 
+  transmute(is_head = ifelse(is_head == "Yes", 1, 0)) %>% 
+  mutate(head_sum = sum(is_head)) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  filter(head_sum == 0) %>% 
+  nrow()
+
+# percentage of households without a head
+pct_hhlds_w_o_head <- 
+  (100 * n_hhlds_w_o_head/n_hhlds_included) %>% 
+  round(1)
+
+  
+# number of households where we could access breadwinner
+n_hhlds_w_breadwin <- 
+  yao %>% 
+  group_by(id_hhld) %>% 
+  transmute(is_breadwin = ifelse(is_breadwin == "Yes", 1, 0)) %>% 
+  mutate(is_breadwin = sum(is_breadwin)) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  filter(is_breadwin > 0) %>% 
+  nrow()
+
+# percentage of households where we could access breadwinner
+pct_hhlds_w_breadwin <- 
+  (100 * n_hhlds_w_breadwin/n_hhlds_included) %>% 
+  round(1)
+
+# percentage of hhlds in which the father is breadwinner
+pct_hhlds_w_father_breadwin <- 
+  (((yao_hhld %>% 
+  filter(is_breadwin_father == 1) %>% 
+  nrow())/n_hhlds_included)* 100) %>% 
+  round(1)
+  
+# percentage of hhlds in which the mother is breadwinner
+pct_hhlds_w_mother_breadwin <- 
+  (((yao_hhld %>% 
+  filter(is_breadwin_mother == 1) %>% 
+  nrow())/n_hhlds_included)* 100) %>% 
+  round(1)
+
+# top 4 occupations
+top_four_occupations <- 
+  yao %>% 
+  select(mcat_occup) %>% 
+  separate_rows(sep = "--") %>% 
+  count(mcat_occup) %>% 
+  arrange(-n) %>% 
+  head(4) %>% 
+  pull(mcat_occup) %>% 
+  paste(., collapse = ", ")
+ 
+
+# pct with death during pandemic
+pct_with_death <- 
+  (yao_hhld %>% 
+  filter(has_hhld_death == "Yes") %>% 
+  nrow()*100/n_hhlds_included) %>% 
+  round(1)
+  
+# mean age of death during pandemic
+mean_age_death <- 
+  yao_hhld %>%  
+  filter(!is.na(val_dead1_age)) %>% 
+  .$val_dead1_age %>% 
+  mean()
+
+# number with positive test
+n_hhlds_with_pos_test <- 
+  yao_hhld %>%
+  filter(has_mem_tested_positive == "Yes") %>% 
+  nrow()
+
+# Number with any COVID-like symptoms
+n_inds_with_symptoms <- 
+  yao %>% 
+  filter(mcat_symp != "No symptoms") %>% 
+  nrow()
+
+# Percentage with any COVID-like symptoms
+pct_inds_with_symptoms <- 
+  ((100 * n_inds_with_symptoms)/nrow(yao)) %>% 
+  round(1)
+  
+# percentage complete or partial compliance with preventive measures
+pct_respecting_distancing <- 
+  ((yao %>% 
+  filter(is_respecting_distancing == "Definitely Yes" | is_respecting_distancing == "Partly"  ) %>% 
+  nrow() * 100)/nrow(yao)) %>% 
+  round(1)
+
+# Number seropositive
+n_seropositive <- 
+  yao %>% 
+  filter(cat_igg_result == "Positive" | cat_igm_result == "Positive" ) %>% 
+  nrow()
+
+# Number seropositive
+n_seronegative <- 
+  yao %>% 
+  filter(cat_igg_result == "Negative" & cat_igm_result == "Negative" ) %>% 
+  nrow()
+
+```
+
+-   Date of first survey: `r min_dt_quest`
+
+-   Date of last survey: `r max_dt_quest`
+
+-   Number of households surveyed: `r n_hhlds_included`
+
+-   Number of individuals surveyed: `r n_ind_included`
+
+-   Mean number of adults per household: `r mean_n_adults_per_hhld`
+
+-   Mean number of children per household: `r mean_n_children_per_hhld`
+
+-   Number of household where the head was not interviewed: `r n_hhlds_w_o_head`
+
+-   Percentage of household where the head was not interviewed: `r pct_hhlds_w_o_head`%
+
+-   Number of households where the breadwinner was interviewed: `r n_hhlds_w_breadwin`
+
+-   Percentage of households where the breadwinner was interviewed: `r pct_hhlds_w_breadwin`%
+
+-   Percentage of households in which the father is the breadwinner: `r pct_hhlds_w_father_breadwin`%
+
+-   Percentage of households in which the mother is the breadwinner: `r pct_hhlds_w_mother_breadwin`%
+
+-   Top four occupations: `r top_four_occupations`
+
+-   Percentage of households where there has been a death since March 1st: `r pct_with_death`
+
+-   Mean age of those who diead since March 1st: `r mean_age_death`
+
+-   Number of households where a prior positive test was reported: `r n_hhlds_with_pos_test`
+
+-   Number of individuals who have reported any COVID-like symptoms: `r n_inds_with_symptoms`
+
+-   Percentage of individuals who have reported any COVID-like symptoms: `r pct_inds_with_symptoms`
+
+-   Percentage of individuals who are completely or partially complying with social distancing: `r pct_respecting_distancing`%
+
+-   Number seropositive (either IgG or IgM): `r n_seropositive`
+
+-   Number seronegative (both IgG and IgM): `r n_seronegative`
+
+
+
+\newpage
+
+# Tables and Figures Requested
+
+## Sample characteristics table
+
+Below is the sample table. Still needs lots of work: More variables, percentages. A similar table that is faceted by seropositivity instead of sex may also be good.
+
+```{r}
+
+sex_count <- 
+  yao %>% 
+  # summarise
+  group_by(cat_sex) %>% 
+  count(id_ind) %>% 
+  count(n) %>% 
+  ungroup() %>% 
+  mutate(pct = 100*nn/sum(nn),
+         pct = round(pct, 1),
+         nn_pct = paste0(nn, " (", pct, "%)")) %>% 
+  # add total
+  add_row(cat_sex = "Total", 
+          nn = sum(.$nn),
+          nn_pct = as.character(sum(.$nn)) ) %>% 
+  # transform
+  select(Sex = cat_sex,
+         #nn_pct ,
+         nn) %>% 
+  mutate(Characteristic = "n") %>% 
+  pivot_wider(id_cols = Characteristic, values_from = nn, names_from = Sex) %>% 
+  mutate(across(.fns = as.character))
+
+
+  
+hhld_head_m_f <- 
+  yao %>% 
+  # summarise
+  group_by(cat_sex) %>% 
+  summarise(n = sum(is_head == "Yes")) %>% 
+  ungroup() %>% 
+  # add total 
+  add_row(cat_sex = "Total",
+          n = sum(.$n)) %>% 
+  # transform
+  #mutate(Characteristic = "Household heads, n (%)") %>% 
+  mutate(Characteristic = "Num. household heads") %>% 
+  rename(Sex = cat_sex) %>% 
+  pivot_wider(id_cols = Characteristic, values_from = n, names_from = Sex) %>% 
+  mutate(across(.fns = as.character))
+  
+
+mean_age <- 
+  yao %>% 
+  # summarise
+  group_by(cat_sex) %>% 
+  summarise(mean_age = format(mean(val_age), digits = 3 ) , 
+            sd = format(sd(val_age), digits = 3), 
+            mean_sd = paste0(mean_age, " (", sd, ")")
+            ) %>% 
+  ungroup() %>% 
+  # add total
+  add_row(cat_sex = "Total",
+          mean_age = format(mean(yao$val_age), digits = 3 ), 
+          sd = format(sd(yao$val_age), digits = 3)) %>% 
+  mutate(mean_sd = ifelse(cat_sex == "Total", 
+                          paste0(mean_age, " (", sd, ")"),
+                          mean_sd)) %>% 
+  # transform
+  mutate(Characteristic = "Mean Age (SD)") %>% 
+  pivot_wider(id_cols = Characteristic, values_from = mean_sd, names_from = cat_sex)
+
+
+BMI_row <- 
+  yao %>% 
+  # summarise
+  group_by(cat_sex) %>% 
+  summarise(mean_BMI = format(mean(val_BMI), digits = 3 ) , 
+            sd = format(sd(val_BMI), digits = 3), 
+            mean_sd = paste0(mean_BMI, " (", sd, ")")
+            ) %>% 
+  ungroup() %>% 
+  # add total
+  add_row(cat_sex = "Total",
+          mean_BMI = format(mean(yao$val_BMI), digits = 3 ), 
+          sd = format(sd(yao$val_BMI), digits = 3)) %>% 
+  mutate(mean_sd = ifelse(cat_sex == "Total", 
+                          paste0(mean_BMI, " (", sd, ")"),
+                          mean_sd)) %>% 
+  # transform
+  mutate(Characteristic = "Mean BMI (SD)") %>% 
+  pivot_wider(id_cols = Characteristic, values_from = mean_sd, names_from = cat_sex)
+
+
+tabulate_categories <- function(df, col) {
+  df %>%
+    # count
+    group_by(cat_sex, {{ col }}) %>%
+    count(id_ind) %>%
+    count(n) %>%
+    ungroup() %>%
+    # add percentages
+    group_by(cat_sex) %>%
+    mutate(
+      pct = 100 * nn / sum(nn),
+      pct = round(pct, 1)
+    ) %>%
+    ungroup() %>%
+    # add total
+    add_row(cat_sex = "Total") %>%
+    complete(cat_sex, {{ col }}) %>%
+    group_by({{ col }}) %>%
+    mutate(nn = ifelse(cat_sex == "Total",
+                       sum(nn, na.rm = T), nn)) %>%
+    group_by(cat_sex) %>%
+    mutate(pct = ifelse(cat_sex == "Total",
+                        round(100 * nn / sum(nn, na.rm = T), 1),
+                        pct)) %>%
+    filter(!is.na({{ col }})) %>%
+    {
+      suppressWarnings(mutate(., across(.fns = ~ replace_na(.x, 0))))
+    } %>%
+    # paste count and percentages
+    mutate(nn = format(nn, digits = 3)) %>%
+    mutate(nn_pct = paste0(nn, " (", pct, "%)")) %>%
+    # transform
+    select(Characteristic = {{ col }},
+           Sex = cat_sex,
+           nn_pct) %>%
+    pivot_wider(id_cols = Characteristic, values_from = nn_pct, names_from = Sex) %>%
+    mutate(across(.fns = as.character))
+}
+
+
+age_groups <- 
+  yao %>% 
+  # count
+  tabulate_categories(cat_age)
+
+
+education_levels <- 
+  yao %>% 
+  mutate(cat_educ = recode(cat_educ, "No response" = "Other")) %>% 
+  mutate(cat_educ = fct_infreq(cat_educ), 
+         cat_educ = fct_relevel(cat_educ, "Other", after = Inf)) %>% 
+  tabulate_categories(cat_educ)
+
+
+professions <- 
+  yao %>% 
+  # separate
+  select(cat_sex, id_ind, mcat_occup) %>% 
+  separate_rows(mcat_occup, sep = "--") %>% 
+  mutate(mcat_occup = recode(mcat_occup, "No response" = "Other")) %>% 
+  mutate(mcat_occup = fct_infreq(mcat_occup)) %>% 
+  tabulate_categories(mcat_occup)
+
+
+chronic_illnesses <- 
+  yao %>% 
+  # separate
+  select(cat_sex, id_ind, mcat_chronic) %>% 
+  separate_rows(mcat_chronic, sep = "--") %>% 
+  mutate(mcat_chronic = recode(mcat_chronic, "Other chronic illness" = "Other")) %>% 
+  mutate(mcat_chronic = fct_infreq(mcat_chronic), 
+          mcat_chronic = fct_relevel(mcat_chronic, "Other", after = Inf)) %>% 
+  # count
+  tabulate_categories(mcat_chronic)
+
+
+sample_table <- 
+  sex_count %>% 
+  bind_rows(hhld_head_m_f) %>% 
+  bind_rows(mean_age) %>% 
+  bind_rows(BMI_row) %>% 
+  add_row(Characteristic  = "Age groups, n (% of sex in each group)") %>% 
+  bind_rows(age_groups) %>% 
+  add_row(Characteristic  = "Education Level, n (% of sex in each group)") %>% 
+  bind_rows(education_levels) %>% 
+  add_row(Characteristic  = "Profession, n (% of sex in each group)") %>% 
+  bind_rows(professions) %>% 
+  add_row(Characteristic  = "Chronic conditions, n (% of sex with that condition)") %>% 
+  bind_rows(chronic_illnesses) %T>% 
+  {which(is.na(.$Female)) ->> rows_to_merge } %>% 
+  huxtable() %>% 
+  theme_basic() %>% 
+  merge_across(row = rows_to_merge + 1) %>% 
+  set_italic(row = c(rows_to_merge + 1), col = 1) %>% 
+  set_latex_float("h!") %>% 
+  set_all_padding(0.5)
+
+sample_table
+
+```
+
+\newpage
+
+## Seropositivity breakdown by age and sex figure
+
+Anyone who had either a positive IgG or IgM is shown as positive here. Inconclusive results are not included in the denominator for the percentages.
+
+```{r fig.width = 6, fig.height = 4}
+
+# yao %>% 
+#   filter(val_age > 69) %>% 
+#   filter(cat_sex == "femme") %>% 
+#   filter(cat_igg_result == "Positive" | cat_igm_result == "Positive") %>% 
+#   nrow()
+
+pos_age_sex <- 
+  yao %>% 
+  mutate(val_age = cut(val_age, breaks = c(4.9,9,19,29,39,49,59,69,79, 120 ),
+                          labels = c("5-9", "10-19", "20-29", "30-39", "40-49",
+                                     "50-59", "60-69", "70-79", ">80"), right = T  ) ) %>% 
+  # create a counter column
+  mutate(pos_test = if_else(cat_igg_result == "Positive" | cat_igm_result == "Positive", 1, 0)) %>% 
+  mutate(neg_test = if_else(cat_igg_result == "Negative" & cat_igm_result == "Negative", 1, 0)) %>% 
+  group_by(val_age, cat_sex) %>% 
+  summarise(neg_test = sum(neg_test, na.rm = T), 
+            pos_test = sum(pos_test, na.rm = T)) %>% 
+  mutate(total_count = neg_test + pos_test) %>% 
+  ungroup() %>% 
+  mutate(cat_sex = recode(cat_sex, "femme" = "Female", "homme" = "Male"))
+  
+
+
+pos_age_sex_long <- 
+  pos_age_sex %>% 
+  select(-total_count) %>% 
+  pivot_longer(names_to = "classification", cols = c(neg_test, pos_test)) %>% 
+  mutate(classification  = fct_rev(classification))
+  
+
+pos_age_sex_long %>% 
+ggplot() +
+  # males
+  geom_bar(data=subset(pos_age_sex_long, cat_sex=="Male"),
+                 aes(x=val_age,y=value,fill=classification),
+                 stat="identity",position = "stack", color="white", width = 1,
+           size = 0.1) +
+    # add a scale. We don't want a legend for cases. Only deaths, so we pass only a single value to the breaks argument
+    scale_fill_manual( breaks = c("Positive"), values = c("#EB7E3C", "#7cb4f7" )) +
+    # ggnewscale allows us to fill males and females with a slightly different color for cases
+    ggnewscale::new_scale_fill() +
+  # females
+    geom_bar(data=subset(pos_age_sex_long, cat_sex=="Female"),
+                  # negative values for the women
+                 aes(x=val_age, y=-value,fill=classification),
+                 stat="identity",position = "stack", color="white", width = 1,
+           size = 0.1) +
+    # add a scale. We don't want a legend for cases. Only deaths, so we pass only a single value to the breaks argument
+    scale_fill_manual( breaks = c("Positive"), values = c("#EB7E3C", "#7cb4f7")) +
+  # Pos rate labels for males and females (bold font)
+  geom_label(data=subset(pos_age_sex,cat_sex=="Male"  & !is.na(val_age)),
+                       aes(x=val_age, y=total_count,
+                           # label
+                           label = paste0("Pos: ", round(100* pos_test/total_count, 1), "%")),
+                           size = 2.7,  fontface = "bold", colour = "#b33e10",
+                           hjust = 0, vjust = 0.2, label.size = 0, fill = "transparent") +
+  geom_label(data=subset(pos_age_sex,cat_sex=="Female"  & !is.na(val_age)),
+                       aes(x=val_age, y=-total_count,
+                           # label
+                           label = paste0("Pos: ", round(100* pos_test/total_count, 1), "%")),
+                           size = 2.7,  fontface = "bold", colour = "#b33e10",
+                           hjust = 1, vjust = 0.2, label.size = 0, fill = "transparent") +
+    # Pos and total count labels (plain font)
+    geom_label(data=subset(pos_age_sex,cat_sex=="Male"  & !is.na(val_age)),
+                       aes(x=val_age, y=total_count,
+                           # label
+                           label = paste0("(",pos_test, " of ", total_count, ")")),
+                           size = 2.5,  fontface = "plain", colour = alpha("#b33e10", 0.8),
+                           hjust = 0, vjust = 1, label.size = 0, fill = "transparent") +
+    geom_label(data=subset(pos_age_sex,cat_sex=="Female"  & !is.na(val_age)),
+                        aes(x=val_age, y=-total_count,
+                           # label
+                           label = paste0("(",pos_test, " of ", total_count, ")")),
+                           size = 2.5,  fontface = "plain", colour = alpha("#b33e10", 0.8),
+                           hjust = 1, vjust = 1, label.size = 0, fill = "transparent") +
+  # Female and male labels
+  # We put in manual annotations for where to place the FEMALE and MALE headers.
+  # these are anchored to the mean value of case counts * 2.2
+  annotate("text", x= 8, y = -mean(pos_age_sex$total_count)* 1.3, label = "Female", size = 4, fontface = "bold", colour = "black") +
+    annotate("text", x= 8, y = mean(pos_age_sex$total_count)* 1.3, label = "Male", size = 4 , fontface = "bold", colour = "black" ) +
+  labs(x="Age group", y = "Count of Negative and Positive tests") +
+    theme(legend.title = element_blank(),
+          legend.position = "bottom") +
+    scale_y_continuous(
+      # expand the scale so that text labels are not cut off
+      limits = range(c(pos_age_sex$total_count * 1.25,
+               -pos_age_sex$total_count* 1.25 ),na.rm=T) ,
+      # absolute value labels
+      labels = abs) +
+      coord_flip()
+
+```
+
+## Seropositivity breakdown table
+
+(see next page)
+
+\newpage
+
+```{r}
+
+pos_count <- 
+  yao %>% 
+  filter(!is.na(cat_pos)) %>% 
+  # summarise
+  group_by(cat_pos) %>% 
+  count(id_ind) %>% 
+  count(n) %>% 
+  ungroup() %>% 
+  # transform
+  select(pos = cat_pos,
+         nn) %>% 
+  mutate(Characteristic = "n") %>% 
+  pivot_wider(id_cols = Characteristic, values_from = nn, names_from = pos) %>% 
+  mutate(across(.fns = as.character))
+
+
+mean_age <- 
+  yao %>% 
+  filter(!is.na(cat_pos)) %>% 
+  # summarise
+  group_by(cat_pos) %>% 
+  summarise(mean_age = format(mean(val_age), digits = 3 ) , 
+            sd = format(sd(val_age), digits = 3), 
+            mean_sd = paste0(mean_age, " (", sd, ")")
+            ) %>% 
+  ungroup() %>% 
+  # transform
+  mutate(Characteristic = "Mean Age (SD)") %>% 
+  pivot_wider(id_cols = Characteristic, values_from = mean_sd, names_from = cat_pos)
+
+
+BMI_row <- 
+  yao %>% 
+  filter(!is.na(cat_pos)) %>% 
+  # summarise
+  group_by(cat_pos) %>% 
+  summarise(mean_BMI = format(mean(val_BMI), digits = 3 ) , 
+            sd = format(sd(val_BMI), digits = 3), 
+            mean_sd = paste0(mean_BMI, " (", sd, ")")
+            ) %>% 
+  ungroup() %>% 
+  # transform
+  mutate(Characteristic = "Mean BMI (SD)") %>% 
+  pivot_wider(id_cols = Characteristic, values_from = mean_sd, names_from = cat_pos)
+
+
+tabulate_sero_categories <- function(df, col) {
+  df %>%
+    mutate(counter = 1) %>%
+    group_by(cat_pos) %>%
+    mutate(n_pos_neg = length(unique(id_ind))) %>%
+    group_by(cat_pos, {{ col }}) %>%
+    transmute(
+      n_pos_neg_per_cat = sum(counter),
+      n_pos_neg = n_pos_neg
+    ) %>%
+    slice(1) %>%
+    ungroup() %>%
+    mutate(
+      pct = 100 * n_pos_neg_per_cat / n_pos_neg,
+      pct = round(pct, 1)
+    ) %>%
+    # paste count and percentages
+    mutate(n_pos_neg_per_cat = format(n_pos_neg_per_cat, digits = 5)) %>%
+    mutate(nn_pct = paste0(n_pos_neg_per_cat, " (", pct, "%)")) %>%
+    # transform
+    select(
+      Characteristic = {{ col }},
+      pos = cat_pos,
+      nn_pct
+    ) %>%
+    pivot_wider(id_cols = Characteristic, values_from = nn_pct, names_from = pos) %>%
+    mutate(across(.fns = as.character))
+}
+
+sex_groups <- 
+  yao %>% 
+  filter(!is.na(cat_sex) & !is.na(cat_pos)) %>% 
+  tabulate_sero_categories(cat_sex)
+
+age_groups <- 
+  yao %>% 
+  mutate(cat_age = cut(val_age, 
+                       breaks = c(4.9,15,29,45,65,100), 
+                       labels = c("5-15", "16-29", "30-45", "46-65", "above 65")
+                       )) %>%
+  filter(!is.na(cat_age) & !is.na(cat_pos)) %>% 
+  tabulate_sero_categories(cat_age)
+
+
+education_levels <- 
+  yao %>% 
+  mutate(cat_educ = recode(cat_educ, "No response" = "Other")) %>% 
+  mutate(cat_educ = fct_infreq(cat_educ), 
+         cat_educ = fct_relevel(cat_educ, "Other", after = Inf)) %>% 
+  filter(!is.na(cat_educ) & !is.na(cat_pos)) %>% 
+  tabulate_sero_categories(cat_educ)
+
+
+professions <- 
+  yao %>% 
+  # separate
+  select(cat_pos, id_ind, mcat_occup) %>% 
+  separate_rows(mcat_occup, sep = "--") %>% 
+  mutate(mcat_occup = recode(mcat_occup, "No response" = "Other")) %>% 
+  mutate(mcat_occup = fct_infreq(mcat_occup)) %>% 
+  filter(!is.na(mcat_occup) & !is.na(cat_pos)) %>% 
+  tabulate_sero_categories(mcat_occup)
+
+symptoms <- 
+  yao %>% 
+  # separate
+  select(cat_pos, id_ind, mcat_symp) %>% 
+  separate_rows(mcat_symp, sep = "--") %>% 
+  mutate(mcat_symp = fct_infreq(mcat_symp)) %>% 
+  filter(!is.na(mcat_symp) & !is.na(cat_pos)) %>% 
+  tabulate_sero_categories(mcat_symp)
+
+
+sero_table <- 
+  pos_count %>% 
+  bind_rows(mean_age) %>% 
+  bind_rows(BMI_row) %>% 
+  add_row(Characteristic  = "Age groups, n (% of all positive/negatives that are of each sex)") %>% 
+  bind_rows(sex_groups) %>% 
+  add_row(Characteristic  = "Age groups, n (% of all positive/negatives that are in each age group)") %>% 
+  bind_rows(age_groups) %>% 
+  add_row(Characteristic  = "Education Level, n (% of all positive/negatives that are in each education class)") %>% 
+  bind_rows(education_levels) %>% 
+  add_row(Characteristic  = "Profession, n (% of all positive/negatives that are in each profession class)") %>% 
+  bind_rows(professions) %>% 
+  add_row(Characteristic  = "Symptoms, n (% of all positive/negatives that reported each symptom)") %>% 
+  bind_rows(symptoms) %T>% 
+  {which(is.na(.$Negative)) ->> rows_to_merge } %>% 
+  huxtable() %>% 
+  theme_basic() %>% 
+  merge_across(row = rows_to_merge + 1) %>% 
+  set_italic(row = c(rows_to_merge + 1), col = 1) %>% 
+  set_latex_float("h!") %>% 
+  set_all_padding(0.5)
+
+sero_table
+```
+
+
+\newpage
+
+## Symptoms reported (since March 1st)
+
+
+All respondents. Denominator of percentages is everyone who was surveyed.
+
+```{r fig.width = 7, fig.height = 4.1}
+
+yao %>%
+  plot_upset(mcat_symp,
+             intersect_cutoff = 3,
+             set_size_lab = "Prevalence \n(n and % with this symptom)",
+             intersect_size_lab = "Co-prevalence \n (n and % with this combination of symptoms)")
+
+```
+
+Subset of those who have had symptoms. Denominator of percentages is everyone who was surveyed.
+
+```{r fig.width = 7, fig.height = 4.1}
+
+yao %>%
+  filter(mcat_symp != "No symptoms") %>%
+  plot_upset(mcat_symp,
+             intersect_cutoff = 3,
+             sep = "--",
+             set_size_lab = "Prevalence \n(n and % with this symptom)",
+             intersect_size_lab = "Co-prevalence \n (n and % with this combination of symptoms)"
+             )
+
+```
+
+Subset of those who had a positive IgG or IgM test and have reported symptoms. Denominator of percentages is everyone who was seropositive.
+
+```{r fig.width = 7, fig.height = 4.4}
+
+seropos_sub <- yao %>%
+  filter(cat_igg_result == "Positive" | cat_igm_result == "Positive") 
+
+seropos_sub %>%
+  filter(mcat_symp!= "No symptoms") %>% 
+  plot_upset(mcat_symp,
+             denom = seropos_sub,
+             intersect_cutoff = 2,
+             sep = "--",
+              set_size_lab = "Prevalence \n(n and % with this symptom)",
+             intersect_size_lab = "Co-prevalence \n (n and % with this combination of symptoms)"
+             )
+
+```
+
+Subset of those who had negative test results for both the IgG and IgM and have reported symptoms. Denominator of percentages is everyone who was seronegative
+
+
+```{r fig.width = 7, fig.height = 4.4}
+
+seroneg_sub <- yao %>%
+  filter(cat_igg_result == "Negative" & cat_igm_result == "Negative")
+
+seroneg_sub %>%
+  filter(mcat_symp!= "No symptoms") %>% 
+  plot_upset(mcat_symp,
+             denom = seroneg_sub,
+             intersect_cutoff = 2,
+             sep = "--",
+             set_size_lab = "Prevalence \n(n and % with this symptom)",
+             intersect_size_lab = "Co-prevalence \n (n and % with this combination of symptoms)"
+             )
+```
+
+
+
+## Questions on respect of hygiene behavior
+
+
+```{r fig.width=6, fig.height=6.5}
+   
+hygiene_survey_plot <- list( geom_col(position = "stack", width= 0.75) ,
+  # geom_text(aes(label = countprop),
+  #           position = "stack", vjust = -1, hjust = 1.5, color = "white",
+  #           size = 3, fontface = "plain") ,
+  geom_richtext(aes(label = countprop),
+            position = "stack", vjust = 0.5, hjust = 1.1, size = 3.3, lineheight = 0.85, 
+            label.size =0, color = "white", show.legend = FALSE, 
+            label.padding = unit(c(0.1, 0.1, 0.1, 0.1), "lines")) ,
+  coord_flip(clip = "off") ,
+  scale_y_continuous(expand = expansion(add = c(0,0))) ,
+  scale_fill_manual(limits = c("Definitely yes", "Partly", "Definitely not"), 
+                    values = c( "#226EAE", "#7cb4f7", "#E75B30" )) ,
+  theme_minimal() ,
+  theme(plot.title = element_text(hjust = 0, face = "bold"),
+        plot.title.position = "plot",
+        axis.text.y = element_text(color = "black", size = 10, face = "bold"),
+        legend.position = "top", 
+        legend.direction = "horizontal", 
+        legend.title = element_blank(), 
+        panel.grid = element_blank(), 
+        legend.text = element_text(size = 10), 
+        axis.text.x = element_blank()) )
+
+basic_hygiene <- 
+yao %>%
+  filter(!is.na(cat_pos) & !is.na(is_respecting_hygiene)) %>%
+  filter(is_respecting_hygiene != "No response") %>%
+  # filter(is_respecting_hygiene != "Partly" & is_respecting_hygiene != "No response") %>%
+  group_by(cat_pos, is_respecting_hygiene) %>%
+  summarise(n = n()) %>%
+  group_by(cat_pos) %>%
+  mutate(
+    pct = 100 * n / sum(n),
+    pct_paste = round(pct, 0),
+    countprop = paste0(
+     "<span style='color:white'><i><b>",
+      pct_paste, "%", "</i></b></span>",
+      "<br>", 
+      "<span style='font-size:7pt'>",
+      "n = ",
+      n,
+      "  </span>"
+    ), 
+    countprop = if_else(pct >= 7, countprop, NA_character_)
+  ) %>%
+  mutate(cat_pos = factor(cat_pos,
+    levels = c("Positive", "Negative")
+  )) %>%
+  mutate(cat_pos = recode(cat_pos, "Positive" = "Seropositive", "Negative" = "Seronegative")) %>%
+  mutate(is_respecting_hygiene = factor(is_respecting_hygiene,
+    levels = c("Definitely not", "Partly", "Definitely yes")
+  )) %>%
+  ggplot(aes(x = cat_pos, y = pct, fill = is_respecting_hygiene)) +
+  labs(
+    title = str_wrap("Do you follow the basic hygiene protocols (wash hands frequently, 
+                        sneeze in your elbow, use a disposable tissue, etc.)", 64),
+    x = "", y = ""
+  ) +
+  hygiene_survey_plot
+
+
+
+social_distancing <- 
+yao %>%
+  filter(!is.na(cat_pos) & !is.na(is_respecting_distancing)) %>%
+  filter(is_respecting_distancing != "No response") %>%
+  # filter(is_respecting_hygiene != "Partly" & is_respecting_hygiene != "No response") %>%
+  group_by(cat_pos, is_respecting_distancing) %>%
+  summarise(n = n()) %>%
+  group_by(cat_pos) %>%
+ mutate(
+    pct = 100 * n / sum(n),
+    pct_paste = round(pct, 0),
+    countprop = paste0(
+     "<span style='color:white'><i><b>",
+      pct_paste, "%", "</i></b></span>",
+      "<br>", 
+      "<span style='font-size:7pt'>",
+      "n = ",
+      n,
+      "  </span>"
+    ), 
+      countprop = if_else(pct >= 7, countprop, NA_character_)
+  ) %>%
+  mutate(cat_pos = factor(cat_pos,
+    levels = c("Positive", "Negative")
+  )) %>%
+  mutate(cat_pos = recode(cat_pos, "Positive" = "Seropositive", "Negative" = "Seronegative")) %>%
+  mutate(is_respecting_distancing = factor(is_respecting_distancing,
+    levels = c("Definitely not", "Partly", "Definitely yes")
+  )) %>%
+  ggplot(aes(x = cat_pos, y = pct, fill = is_respecting_distancing)) +
+  labs(
+    title = str_wrap("Do you follow social distancing rules (avoid handshakes or hugs, 
+                        avoid unnecessary outings, etc.)", 64),
+    x = "", y = ""
+  ) +
+  hygiene_survey_plot +
+  theme(legend.position = "none")
+
+
+confinement <- 
+yao %>%
+  filter(!is.na(cat_pos) & !is.na(is_staying_confined)) %>%
+  filter(is_staying_confined != "No response") %>%
+  # filter(is_respecting_hygiene != "Partly" & is_respecting_hygiene != "No response") %>%
+  group_by(cat_pos, is_staying_confined) %>%
+  summarise(n = n()) %>%
+  group_by(cat_pos) %>%
+  mutate(
+    pct = 100 * n / sum(n),
+    pct_paste = round(pct, 0),
+    countprop = paste0(
+     "<span style='color:white'><i><b>",
+      pct_paste, "%", "</i></b></span>",
+      "<br>", 
+      "<span style='font-size:7pt'>",
+      "n = ",
+      n,
+      "  </span>"
+    ), 
+    countprop = if_else(pct >= 7, countprop, NA_character_)
+  ) %>%
+  mutate(cat_pos = factor(cat_pos,
+    levels = c("Positive", "Negative")
+  )) %>%
+  mutate(cat_pos = recode(cat_pos, "Positive" = "Seropositive", "Negative" = "Seronegative")) %>%
+  mutate(is_staying_confined = factor(is_staying_confined,
+    levels = c("Definitely not", "Partly", "Definitely yes")
+  )) %T>%
+  {
+    . ->> data_to_plot
+  } %>%
+  ggplot(aes(x = cat_pos, y = pct, fill = is_staying_confined)) +
+  labs(
+    title = str_wrap("Since March 1st, have you stayed confined?", 64),
+    x = "", y = ""
+  ) +
+  hygiene_survey_plot +
+  theme(legend.position = "none")
+
+
+line_sep <- 
+  linesGrob(unit(c(0, 1), "npc"), unit(1, "npc"),
+                            gp = gpar(col = 'lightgrey', lwd = 4)) %>% 
+  wrap_elements()
+
+patchwork::wrap_plots(basic_hygiene, line_sep, social_distancing, line_sep, confinement, 
+                      ncol = 1, heights = c(1,0.1,1,0.1,1))
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
