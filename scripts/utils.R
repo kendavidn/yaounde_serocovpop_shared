@@ -293,7 +293,7 @@ plot_upset <- function(df, cat_col, denom = NA, id_col = "id_ind", intersect_cut
   intersect_size_plot <- 
     intersect_size %>% 
     ggplot() +
-    geom_col(aes(x = {{cat_col}}, y = n), fill = "#1c6db0", width = 0.5) +
+    geom_col(aes(x = {{cat_col}}, y = n), fill = my_green, width = 0.5) +
     geom_richtext(aes(x = {{cat_col}} , y = n, label = countprop), 
                   size = 2.5, alpha = 0.85, vjust = -0.2, 
                   label.padding = unit(c(0.1, 0.1, 0.1, 0.1), "lines")) +
@@ -316,7 +316,7 @@ plot_upset <- function(df, cat_col, denom = NA, id_col = "id_ind", intersect_cut
   set_size_plot <-  
     set_size %>% 
     ggplot() +
-    geom_col(aes(x = {{cat_col}}, y = n), fill = "#1c6db0", width = 0.5) +
+    geom_col(aes(x = {{cat_col}}, y = n), fill = my_green, width = 0.5) +
     geom_richtext(aes(x = {{cat_col}} , y = n, label = countprop), 
                   size = 2.5, alpha = 0.85, hjust = 1.14, 
                   label.padding = unit(c(0.1, 0.1, 0.1, 0.1), "lines")

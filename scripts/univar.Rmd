@@ -381,7 +381,7 @@ yao %>%
 yao %>%
   # not sure what these are
   filter(mcat_occup != "") %>%
-  plot_upset(mcat_occup, intersect_cutoff = 3)
+  plot_upset(mcat_occup, intersect_cutoff = 0)
 ```
 
 ## 4.5.1 If you answered "Other" to the previous question, specify
@@ -591,11 +591,19 @@ yao %>%
 (Among those who had symptoms)
 
 ```{r fig.height = 4}
+
+yao_symptoms <- 
+  yao %>% 
+  filter(mcat_symp != "No symptoms")
+
+
 yao %>%
   filter(mcat_symp != "No symptoms") %>%
+  filter(mcat_drug != "No response") %>%
   filter(!is.na(mcat_drug)) %>% 
   plot_upset(cat_col = mcat_drug,
              intersect_cutoff = 2,
+             denom = yao_symptoms,
              sep = "--"
              )
 

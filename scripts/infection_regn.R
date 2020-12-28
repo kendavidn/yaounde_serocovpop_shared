@@ -9,6 +9,9 @@ yao_regn <-
   yao %>% 
   # drop folks who didn't do any test
   filter(!is.na(cat_pos_num)) %>% 
+  # drop folks with missing values for regressors
+  filter(!is.na(is_breadwin)) %>% 
+  filter(!is.na(cat_BMI)) %>% 
   # replace NA
   mutate(mcat_chronic = replace_na(mcat_chronic, "None")) 
 
@@ -32,7 +35,8 @@ count_per_group <-
     mutate(pct = pos / n,
            pct = 100 * pct,
            pct = round(pct, 1),
-           pos_pct = paste0(pos, " (", pct, ")"))
+           pos_pct = paste0(pos, " (", pct, ")")) %>% 
+    rename("labels" = {{ col }})
 }
 
 
@@ -66,21 +70,23 @@ regn_per_group <-
              lower_CI = format(lower_CI, digits = 2 ), 
              avg_rel_risk = format(avg_rel_risk, digits = 2 )
       ) %>% 
-      mutate(term = str_replace_all(term, col_string, "")) %>% 
+      mutate(labels = str_replace_all(term, col_string, "")) %>% 
       mutate(estimate_and_CI = paste0(estimate, " (", lower_CI, " - ", upper_CI, ")")) %>% 
-      select(term, estimate_and_CI, lower_CI, estimate, upper_CI, avg_rel_risk, signif)
+      select(labels, estimate_and_CI, lower_CI, estimate, upper_CI, avg_rel_risk, signif, p.value)
 }
 
 clean_count_and_regn <- 
-  function(df, internal_name_str, print_name_str){
+  function(df, label, group){
   df %>% 
-    rename("labels" = all_of(internal_name_str) ) %>% # all_of is just to silence an error message
-    bind_rows(c(labels = paste0("**", print_name_str ,"**") )) %>% 
-    arrange(labels != paste0("**", print_name_str ,"**") ) %>% 
+    bind_rows(c(labels = paste0("**", label ,"**") )) %>% 
+    arrange(labels != paste0("**", label ,"**") ) %>% 
     mutate(estimate = as.numeric(estimate),
            lower_CI = as.numeric(lower_CI), 
            upper_CI = as.numeric(upper_CI)) %>% 
-    mutate(rowid = rev(1:nrow(.)))
+    mutate(rowid = rev(1:nrow(.)), 
+           group = group) %>% 
+    mutate(min.p.value = min(p.value, na.rm = T)) 
+    
 }
 
 
@@ -89,26 +95,21 @@ clean_count_and_regn <-
 #~  Gender ----
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-sex_count <- yao_regn %>% 
-  count_per_group(cat_sex)
-
-sex_regn <- 
-  yao_regn %>% 
-  regn_per_group(cat_sex)
+sex_count <- yao_regn %>% count_per_group(cat_sex)
+sex_regn <- yao_regn %>% regn_per_group(cat_sex)
 
 sex_count_and_regn <- 
   sex_count %>% 
-  left_join(sex_regn, by = c("cat_sex"  = "term") ) %>% 
-  clean_count_and_regn("cat_sex", "Sex")
+  left_join(sex_regn) %>% 
+  clean_count_and_regn(label = "Sex", group ="cat_sex")
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #~  Ages ----
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-age_count <- yao_regn %>% 
-  count_per_group(cat_age)
- 
+age_count <- yao_regn %>% count_per_group(cat_age)
+
 age_regn <- 
   yao_regn %>% 
   # set reference level for regressions
@@ -117,60 +118,76 @@ age_regn <-
   
 age_count_and_regn <- 
   age_count %>% 
-  left_join(age_regn, by = c("cat_age"  = "term") ) %>% 
-  clean_count_and_regn("cat_age", "Age") %>% 
+  left_join(age_regn) %>% 
+  clean_count_and_regn(label = "Age", group = "cat_age") %>% 
   # reorder for table
   mutate(labels = factor(labels, levels = c("**Age**" ,"5 - 14", "15 - 29", "30 - 44", "45 - 64", "65 +"))) %>% 
   arrange(labels)
   
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~  Education  ----
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+educ_count <- yao_regn %>% count_per_group(cat_educ)
+educ_regn <- yao_regn %>% regn_per_group(cat_educ)
+educ_count_and_regn <- 
+  educ_count %>% 
+  left_join(educ_regn) %>% 
+  clean_count_and_regn(label = "Highest education level", group = "cat_educ")
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #~  BMI classes  ----
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-BMI_count <- 
-  yao_regn %>% 
-  # drop impossible BMIs
-  filter(!is.na(cat_BMI)) %>% 
-  count_per_group(cat_BMI)
-
-
-BMI_regn <- 
-  yao_regn %>%
-  # drop impossible BMIs
-  filter(!is.na(cat_BMI)) %>% 
-  regn_per_group(cat_BMI)
-
+BMI_count <- yao_regn %>% count_per_group(cat_BMI)
+BMI_regn <- yao_regn %>% regn_per_group(cat_BMI)
 
 BMI_count_and_regn <- 
   BMI_count %>% 
-  left_join(BMI_regn, by = c("cat_BMI"  = "term") ) %>% 
-  clean_count_and_regn("cat_BMI", "BMI group") %>% 
+  left_join(BMI_regn) %>% 
+  clean_count_and_regn(label = "BMI group", group = "cat_BMI") %>% 
   # reorder for table
   mutate(labels = factor(labels, levels = c("**BMI group**", "\\< 18.5 (Underweight)", "18.5 - 24.9", "25 - 30 (Overweight)", " \\> 30 (Obese)"))) %>% 
   arrange(labels)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#~  Education  ----
+#~  Contact with traveller  ----
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-educ_count <- 
-  yao_regn %>% 
-  filter(!(cat_educ %in% c("Doctorate", "No response", "Other"))) %>% 
-  count_per_group(cat_educ)
+contact_traveller_count <- yao_regn %>% count_per_group(has_contact_traveller)
+contact_traveller_regn <- yao_regn %>% regn_per_group(has_contact_traveller)
 
+contact_traveller_count_and_regn <- 
+  contact_traveller_count %>% 
+  left_join(contact_traveller_regn) %>% 
+  clean_count_and_regn(label = "Recent contact with an international traveller", 
+                       group = "has_contact_traveller")
 
-educ_regn <- 
-  yao_regn %>%
-  filter(!(cat_educ %in% c("Doctorate", "No response", "Other"))) %>% 
-  regn_per_group(cat_educ)
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~  Contact with traveller  ----
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+contact_COVID_count <- yao_regn %>% count_per_group(has_contact_COVID)
+contact_COVID_regn <- yao_regn %>% regn_per_group(has_contact_COVID)
 
-educ_count_and_regn <- 
-  educ_count %>% 
-  left_join(educ_regn, by = c("cat_educ"  = "term") ) %>% 
-  clean_count_and_regn("cat_educ", "Highest education level")
+contact_COVID_count_and_regn <- 
+  contact_COVID_count %>% 
+  left_join(contact_COVID_regn) %>% 
+  clean_count_and_regn(label = "Contact with suspected/confirmed COVID patient", 
+                       group = "has_contact_COVID")
 
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~  Contact with COVID-19 patient  ----
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+chronic_count <- yao_regn %>% count_per_group(has_chronic)
+chronic_regn <- yao_regn %>% regn_per_group(has_chronic)
+
+chronic_count_and_regn <- 
+  chronic_count %>% 
+  left_join(chronic_regn) %>% 
+  clean_count_and_regn(label = "Do you have any chronic conditions?", group = "has_chronic")
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #~  Occupation  ----
@@ -190,12 +207,13 @@ occup_count_and_regn <- function(df, col, occup_name) {
     mutate("{{ col }}" := if_else({{ col }} == 1, "Yes", "No")) %>%
     regn_per_group({{ col }},
       the_formula = as.formula(paste("cat_pos_num ~", col_string, "+ (1 | id_hhld)")),
-      col_string = col_string)
+      col_string = col_string) %>% 
+    select(-labels)
 
   occup_count_and_regn <-
     occup_count %>%
     bind_cols(occup_regn) %>% 
-    mutate("{{ col }}" := occup_name) %>% 
+    mutate(labels = occup_name) %>% 
     mutate(estimate = as.numeric(estimate),
            lower_CI = as.numeric(lower_CI), 
            upper_CI = as.numeric(upper_CI)) %>% 
@@ -215,6 +233,7 @@ other_section <- yao_regn %>% occup_count_and_regn(is_occup_other, "Other")
 agric_section <- yao_regn %>% occup_count_and_regn(is_occup_agric, "Farmer") 
 
 occup_section <- 
+  as_tibble(data.frame(labels = "**Occupation**")) %>% 
   bind_rows(list(student_section, 
                  trade_section, 
                  business_section, 
@@ -224,8 +243,27 @@ occup_section <-
                  # retiree_section, # fewer than 10 positives
                  # other_section, 
                  # agric_section
-                 ))
-  
+                 )) %>% 
+  mutate(group = "mcat_occup") %>% 
+  mutate(min.p.value = min(p.value, na.rm = T)) 
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~  Is breadwinner  ----
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+breadwin_count <- 
+  yao_regn %>% 
+  count_per_group(is_breadwin)
+
+breadwin_regn <- 
+  yao_regn %>%
+  regn_per_group(is_breadwin)
+
+breadwin_count_and_regn <- 
+  breadwin_count %>% 
+  left_join(breadwin_regn) %>% 
+  clean_count_and_regn(label = "Are you the principal breadwinner?", group = "is_breadwin")
+
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #~  Respect of preventive measures  ----
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -243,28 +281,8 @@ distancing_regn <-
 
 distancing_count_and_regn <- 
   distancing_count %>% 
-  left_join(distancing_regn, by = c("is_respecting_distancing"  = "term") ) %>% 
-  clean_count_and_regn("is_respecting_distancing", "Have you followed social distancing rules?")
-
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#~  Fear of getting COVID  ----
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-fearful_count <- 
-  yao_regn %>% 
-  filter(is_fearful_COVID %in% c("Yes", "No")) %>% 
-  count_per_group(is_fearful_COVID)
-
-fearful_regn <- 
-  yao_regn %>%
-  filter(is_fearful_COVID %in% c("Yes", "No")) %>% 
-  regn_per_group(is_fearful_COVID)
-
-
-fearful_count_and_regn <- 
-  fearful_count %>% 
-  left_join(fearful_regn, by = c("is_fearful_COVID"  = "term") ) %>% 
-  clean_count_and_regn("is_fearful_COVID", "Have you worried about contracting COVID?")
+  left_join(distancing_regn) %>% 
+  clean_count_and_regn(label = "Have you followed social distancing rules?", group = "is_breadwin")
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -274,8 +292,8 @@ fearful_count_and_regn <-
 hhld_area_count <- 
   yao_regn %>% 
   count_per_group(loc_hhld_area) %>% 
-  mutate(loc_hhld_area = fct_reorder(loc_hhld_area, pct)) %>% 
-  arrange(loc_hhld_area)
+  mutate(labels = fct_reorder(labels, pct)) %>% 
+  arrange(labels)
 
 hhld_area_regn <- 
   yao_regn %>%
@@ -288,8 +306,8 @@ hhld_area_regn <-
 
 hhld_area_count_and_regn <- 
   hhld_area_count %>% 
-  left_join(hhld_area_regn, by = c("loc_hhld_area"  = "term") ) %>% 
-  clean_count_and_regn("loc_hhld_area", "Health zone")
+  left_join(hhld_area_regn) %>% 
+  clean_count_and_regn(label = "Health zone", group = "loc_hhld_area")
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #~  Number in household ----
@@ -298,7 +316,7 @@ hhld_area_count_and_regn <-
 cat_n_hhld_indiv_count <- 
   yao_regn %>% 
   count_per_group(cat_n_hhld_indiv) %>% 
-  arrange(cat_n_hhld_indiv)
+  arrange(labels)
 
 cat_n_hhld_indiv_regn <- 
   yao_regn %>%
@@ -307,8 +325,8 @@ cat_n_hhld_indiv_regn <-
 
 cat_n_hhld_indiv_count_and_regn <- 
   cat_n_hhld_indiv_count %>% 
-  left_join(cat_n_hhld_indiv_regn, by = c("cat_n_hhld_indiv"  = "term") ) %>% 
-  clean_count_and_regn("cat_n_hhld_indiv", "Number of household members")
+  left_join(cat_n_hhld_indiv_regn) %>% 
+  clean_count_and_regn(label = "Number of household members", group = "cat_n_hhld_indiv")
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #~  Hhld with Children? ----
@@ -317,7 +335,7 @@ cat_n_hhld_indiv_count_and_regn <-
 has_hhld_children_count <- 
   yao_regn %>% 
   count_per_group(has_hhld_children) %>% 
-  arrange(has_hhld_children)
+  arrange(labels)
 
 has_hhld_children_regn <- 
   yao_regn %>%
@@ -325,42 +343,98 @@ has_hhld_children_regn <-
 
 has_hhld_children_count_and_regn <- 
   has_hhld_children_count %>% 
-  left_join(has_hhld_children_regn, by = c("has_hhld_children"  = "term") ) %>% 
-  clean_count_and_regn("has_hhld_children", "Are there children in the household?")
+  left_join(has_hhld_children_regn) %>% 
+  clean_count_and_regn(label = "Are there children in the household?", group = "has_hhld_children")
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #~  Combine and plot  ----
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-all_sections <- 
+all_sections_univariate <- 
   sex_count_and_regn %>% 
   bind_rows(age_count_and_regn) %>% 
   bind_rows(educ_count_and_regn)  %>% 
   bind_rows(BMI_count_and_regn)  %>% 
-  bind_rows(data.frame(labels = "**Occupation**")) %>% 
+  bind_rows(contact_traveller_count_and_regn) %>% 
+  bind_rows(contact_COVID_count_and_regn) %>% 
+  bind_rows(chronic_count_and_regn) %>% 
   bind_rows(occup_section) %>% 
+  bind_rows(breadwin_count_and_regn) %>% 
   bind_rows(distancing_count_and_regn) %>% 
-  bind_rows(fearful_count_and_regn) %>% 
   bind_rows(hhld_area_count_and_regn) %>% 
   bind_rows(cat_n_hhld_indiv_count_and_regn) %>% 
   bind_rows(has_hhld_children_count_and_regn) %>% 
-  mutate(rowid = rev(1:nrow(.))) %>% 
   mutate(labels = fct_inorder(labels)) %>% 
   # Add "reference" to reference rows
-  mutate(estimate_and_CI = if_else(labels %in% c("30 - 45", 
-                                                 "18.5 - 24.9",
+  mutate(estimate_and_CI = if_else(labels %in% c("30 - 44", # age
+                                                 "18.5 - 24.9", # BMI
+                                                 "No contact with traveller",
+                                                 "No COVID contact",
                                                  "No formal instruction", 
                                                  "Female", 
-                                                 "Definitely yes", 
-                                                 "No", 
+                                                 "Not breadwinner",
+                                                 "Definitely yes", # followed distancing rules
+                                                 "No comorbidity",
                                                  "Cité Verte", 
                                                  "1 - 2", 
                                                  "No children"),
                                    "*Reference*",
                                    estimate_and_CI
-                                   ))
-  
+                                   )) %>% 
+  #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  #~  Filter out p-value not lower than 0.1 
+  #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  group_by(group) %>% 
+  filter(min.p.value < 0.1 | group == "cat_age") %>% 
+  ungroup() %>% 
+  # row ids
+  mutate(rowid = rev(1:nrow(.)))
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~ Multivariate ----
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+signif_vars <- paste(unique(all_sections_univariate$group), "+", collapse = " ")
+
+all_regn <-
+  yao_regn %>%
+  # set reference level for regressions
+  glmer(formula = paste("cat_pos_num ~", signif_vars, "(1 | id_hhld)"),
+        data = .,
+        family = binomial(),
+        control = glmerControl(optimizer = "bobyqa")) %>%
+  broom.mixed::tidy() %>%
+  filter(row_number()!= 1 & row_number()!= nrow(.) ) %>%
+  mutate(labels = str_replace(term, paste(unique(all_sections_univariate$group), collapse = "|"), "")) %>%
+  select(labels, estimate, std.error, p.value) %>% 
+  mutate(estimate = exp(estimate),
+         upper_CI = estimate + 1.96 * std.error,
+         lower_CI = estimate - 1.96 * std.error, 
+         avg_rel_risk = estimate/( 1 - base_risk + ( base_risk * estimate) ),
+         signif = (upper_CI > 1 & lower_CI > 1) | (upper_CI < 1 & lower_CI < 1)) %>% 
+  mutate(estimate = format(estimate, digits = 2 ), 
+         upper_CI = format(upper_CI, digits = 2 ),
+         lower_CI = round(lower_CI, digits = 2),
+         lower_CI = format(lower_CI, digits = 2 ), 
+         avg_rel_risk = format(avg_rel_risk, digits = 2 )) %>% 
+  mutate(estimate_and_CI = paste0(estimate, " (", lower_CI, " - ", upper_CI, ")")) %>% 
+  select(labels, 
+         multi_estimate_and_CI = estimate_and_CI,
+         multi_avg_rel_risk = avg_rel_risk, 
+         multi_signif = signif, 
+         multi_p.value = p.value)
+
+
+all_sections <- 
+  all_sections_univariate %>% 
+  left_join(all_regn) 
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~  plot ----
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   
 # change text size
 update_geom_defaults("text", list(size = 3))
@@ -393,9 +467,9 @@ positive_barplot <-
   mutate(pct_fill = ifelse(!is.na(pct), 100, NA)) %>% 
   ggplot() + 
   geom_stripes(aes(y = labels), odd = "#11111111", even = "#00000000") + 
-  geom_col(aes(y = labels, x = pct_fill), fill = "#d7e6f5") + 
-  geom_col(aes(y = labels, x = pct), fill = "dodgerblue4") + 
-  geom_text(aes(y = labels, x = pct, label = pct), color = "dodgerblue4", size = 3, hjust = -0.2 ) +
+  geom_col(aes(y = labels, x = pct_fill), fill = alpha(my_green, 0.2)) + 
+  geom_col(aes(y = labels, x = pct), fill = my_green) + 
+  geom_text(aes(y = labels, x = pct, label = pct), color = my_darkgreen, size = 3, hjust = -0.2 ) +
   annotate("text", x = 50, y = max(all_sections$rowid) + 1, label = "% Positive",  fontface = "bold", size = 3.3, hjust = 0.5) +
   annotate("text", x = 0, y = max(all_sections$rowid) + 1, label = "") + #placeholder
   scale_y_discrete(limits = rev(all_sections$labels), 
@@ -457,6 +531,8 @@ patchwork::wrap_plots(table_sec1,
                       OR_plot_sec, 
                       table_sec3, 
                       nrow = 1, widths = c(4.7,2,2,1.5,1))
+
+
 
 
 

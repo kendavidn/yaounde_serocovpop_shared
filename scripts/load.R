@@ -32,6 +32,7 @@ p_load(
   "lubridate",
   "highcharter",
   "leaflet",
+  "grid",
   "gridExtra",
   "magrittr",
   "devtools",
@@ -46,10 +47,13 @@ p_load(
   "ggnewscale",
   "prevalence",
   "DescTools",
+  "patch",  # remotes::install_github("r-rudra/patch")
   "tidyverse",
   "sf",
   "patchwork"
 )
+
+source(system.file("embedded","usecases.R",package = "patch"))
 
 
 # usethis::use_github(protocol = "https", auth_token = Sys.getenv("GITHUB_PAT"))
@@ -73,7 +77,7 @@ scale_fill_discrete <- function(...) {
 
 # theme
 my_theme <- theme_classic() +
-  theme(text = element_text( size = 12.5),
+  theme(text = element_text( size = 12.5, family = "Avenir Next"),
         rect = element_blank(), # transparent background
         plot.title = (element_text(face = "bold", hjust = 0.5, size = 13)),
         plot.subtitle = (element_text( hjust = 0.5, size = 8, color = alpha("black", 0.7))),
@@ -91,8 +95,8 @@ my_theme <- theme_classic() +
         panel.spacing.x = unit(3, "mm"), 
         title = element_text(face = "bold"), 
         panel.border = element_blank(),
-        plot.background = element_rect(fill = "#f5f5f5"), 
-        panel.background = element_rect(fill = "white")
+        plot.background = element_rect(fill = "transparent"), 
+        panel.background = element_rect(fill = "transparent")
         #strip.background = element_blank()
   )
 
@@ -100,7 +104,23 @@ theme_set(my_theme)
 
 options(scipen=999) # turn off scientific notation
 
-options(tibble.print_max = 30, tibble.print_min = 30)
+set.seed(1) # fix seed
+
+options(tibble.print_max = 35, tibble.print_min = 35)
+
+GeomText$default_aes$family <- "Avenir Next"
+GeomLabel$default_aes$family <- "Avenir Next"
+GeomRichText$default_aes$family <- "Avenir Next"
+GeomRichtext$default_aes$family <- "Avenir Next"
+
+## colors
+
+my_green <- "#32969B"
+my_darkgreen <- "#105659"
+my_lightgreen <- "#87ccc7"
+my_orange <- "#ff983d"
+
+
 # 
 # category_names <- 
 #   read_excel(here("data/EPICO19_-_all_versions_26 11 approved.xlsx"), sheet = 3) %>% 
@@ -293,6 +313,44 @@ mutate(mcat_recommend = str_replace_all(mcat_recommend,
          # set reference level for regressions
          cat_BMI = factor(cat_BMI, levels = c("18.5 - 24.9", "\\< 18.5 (Underweight)", "25 - 30 (Overweight)", " \\> 30 (Obese)") )
   ) %>% 
+  # contact with traveller 
+  mutate(has_contact_traveller = ifelse(is.na(has_contact_traveller), "I don't know", has_contact_traveller), 
+         has_contact_traveller = recode(has_contact_traveller, 
+                                        "No" = "No contact with traveller", 
+                                        "Yes" = "Recent contact with traveller", 
+                                        "I don't know" = "Unsure about traveller contact"), 
+         has_contact_traveller = factor(has_contact_traveller, 
+                                        levels = c("No contact with traveller",
+                                                   "Recent contact with traveller",
+                                                   "Unsure about traveller contact"))
+         ) %>% 
+  # contact with COVID 
+  mutate(has_contact_COVID = ifelse(is.na(has_contact_COVID), "I don't know", has_contact_COVID), 
+         has_contact_COVID = recode(has_contact_COVID, 
+                                        "No" = "No COVID contact", 
+                                        "Yes" = "Recent COVID contact", 
+                                    "I don't know" = "Unsure about COVID contact"), 
+         has_contact_COVID = factor(has_contact_COVID, 
+                                        levels = c("No COVID contact",
+                                                   "Recent COVID contact",
+                                                   "Unsure about COVID contact"))
+  ) %>% 
+  # chronic conditions
+  mutate(has_chronic = recode(has_chronic, 
+                              "No response" = "No comorbidity", 
+                              "No" = "No comorbidity", 
+                              "Yes" = "Has comorbidity")) %>%  
+  mutate(has_chronic = factor(has_chronic, levels = c("No comorbidity", "Has comorbidity"))) %>% 
+  # education level 
+  mutate(cat_educ = recode(cat_educ, 
+                           "Doctorate" = "Other", 
+                           "No response" = "Other")) %>% 
+  # is breadwinner 
+  mutate(is_breadwin = recode(is_breadwin, 
+                              "No response" = "Not breadwinner", 
+                              "No" = "Not breadwinner",
+                              "Yes" = "Breadwinner")) %>% 
+  mutate(is_breadwin = factor(is_breadwin, levels = c("Not breadwinner", "Breadwinner"))) %>% 
   # respect of distancing rules
   mutate(is_respecting_distancing = factor(is_respecting_distancing, levels = c("Definitely yes", "Partly", "Definitely not", "No response" ) )) %>% 
   # hhld area
@@ -319,7 +377,18 @@ mutate(mcat_recommend = str_replace_all(mcat_recommend,
          has_COVID_symptoms = ifelse(has_symp_fever == 1 & has_symp_cough == 1 , "Yes", has_COVID_symptoms), 
          has_COVID_symptoms = ifelse(COVID_symptom_count >= 3 , "Yes", has_COVID_symptoms)) %>% 
   mutate(has_COVID_symptoms_num  = ifelse(has_COVID_symptoms == "Yes", 1, 0)) %>% 
-  mutate(is_smoker = factor(is_smoker, levels = c("Non-smoker", "Ex-smoker", "Smoker")))
+  mutate(is_smoker = factor(is_smoker, levels = c("Non-smoker", "Ex-smoker", "Smoker"))) %>% 
+  #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  #~ Symptomatic Regression prep ----
+  #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  mutate(has_confin_stopped_work = factor(has_confin_stopped_work, levels = c("Yes", "No", "No response"))) %>% 
+  #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  #~ Make sure factors are factors ----
+  #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  mutate(cat_sex = factor(cat_sex, levels = c("Female", "Male"))) %>% 
+  mutate(cat_educ = as.factor(cat_educ))
+  
+  
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #~  Household representatives subset ----

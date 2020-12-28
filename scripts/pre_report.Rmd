@@ -246,9 +246,9 @@ n_seronegative <-
 
 \newpage
 
-# Tables and Figures Requested
+# Respondent characteristics
 
-## Sample characteristics table
+## Sociodemographic characteristics of the final sample
 
 Below is the sample table. Still needs lots of work: More variables, percentages. A similar table that is faceted by seropositivity instead of sex may also be good.
 
@@ -440,9 +440,46 @@ sample_table
 
 \newpage
 
-## Seropositivity breakdown by age and sex figure
 
-Anyone who had either a positive IgG or IgM is shown as positive here. Inconclusive results are not included in the denominator for the percentages.
+# Seroprevalence estimates
+
+## Seropositivity of respondents by test type
+
+
+```{r fig.width = 2, fig.height = 1.5}
+
+
+intersecting_inside <- euler(c("Negative" = yao %>% filter(cat_igg_result == "Negative" & cat_igm_result == "Negative") %>% nrow(), 
+                               "IgG Positive" = 0, #B
+                               "IgM Positive" = 0,  #c
+                               "Negative&IgG Positive" = yao %>% filter(cat_igg_result == "Positive") %>% nrow(), 
+                               "Negative&IgM Positive"  = yao %>% filter(cat_igm_result == "Positive") %>% nrow(), 
+                               "IgG Positive&IgM Positive" = 0,  # Not part of the all_respondents set
+                               "Negative&IgG Positive&IgM Positive" = yao %>% filter(cat_igg_result == "Positive" & cat_igm_result == "Positive") %>% nrow()))
+
+
+
+plot(intersecting_inside,
+     fills = list(fill = c("gray90",
+                           "lightblue2",
+                           "lightgoldenrod2",
+                           "",
+                           "",
+                           "",
+                           "mediumaquamarine")),
+     legend = list(side = "right", 
+                   fontfamily = "Avenir"), 
+     quantities = list(type = "counts",
+                       font = 3, 
+                       fontfamily = "Avenir"), 
+     edges = list(col = "transparent"))
+
+
+```
+
+## Seropositivity in each age-sex stratum. 
+
+Positive cases include individuals positive for either IgG or IgM antibodies. Inconclusive results are not included in the denominator for the percentages.
 
 ```{r fig.width = 6, fig.height = 4}
 
@@ -454,13 +491,10 @@ Anyone who had either a positive IgG or IgM is shown as positive here. Inconclus
 
 pos_age_sex <- 
   yao %>% 
-  mutate(val_age = cut(val_age, breaks = c(4.9,9,19,29,39,49,59,69,79, 120 ),
-                          labels = c("5-9", "10-19", "20-29", "30-39", "40-49",
-                                     "50-59", "60-69", "70-79", ">80"), right = T  ) ) %>% 
   # create a counter column
   mutate(pos_test = if_else(cat_igg_result == "Positive" | cat_igm_result == "Positive", 1, 0)) %>% 
   mutate(neg_test = if_else(cat_igg_result == "Negative" & cat_igm_result == "Negative", 1, 0)) %>% 
-  group_by(val_age, cat_sex) %>% 
+  group_by(cat_age, cat_sex) %>% 
   summarise(neg_test = sum(neg_test, na.rm = T), 
             pos_test = sum(pos_test, na.rm = T)) %>% 
   mutate(total_count = neg_test + pos_test) %>% 
@@ -475,71 +509,272 @@ pos_age_sex_long <-
   pivot_longer(names_to = "classification", cols = c(neg_test, pos_test)) %>% 
   mutate(classification  = fct_rev(classification))
   
+pos_color <- "#eb9f52"
+neg_color <- alpha(my_green,  0.8)
 
-pos_age_sex_long %>% 
-ggplot() +
+pos_age_sex_long %>%
+  ggplot() +
   # males
   geom_bar(data=subset(pos_age_sex_long, cat_sex=="Male"),
-                 aes(x=val_age,y=value,fill=classification),
-                 stat="identity",position = "stack", color="white", width = 1,
-           size = 0.1) +
-    # add a scale. We don't want a legend for cases. Only deaths, so we pass only a single value to the breaks argument
-    scale_fill_manual( breaks = c("Positive"), values = c("#EB7E3C", "#7cb4f7" )) +
-    # ggnewscale allows us to fill males and females with a slightly different color for cases
-    ggnewscale::new_scale_fill() +
+                 aes(y=cat_age,x=value,fill=classification),
+                 stat="identity",position = "stack", color="white", width = 1,size = 0.1) +
+  # add a scale. We don't want a legend for cases. Only deaths, so we pass only a single value to the breaks argument
+  scale_fill_manual( breaks = c("Positive"), values = c(pos_color, neg_color )) +
+  # ggnewscale allows us to fill males and females with a slightly different color for cases
+  ggnewscale::new_scale_fill() +
   # females
-    geom_bar(data=subset(pos_age_sex_long, cat_sex=="Female"),
-                  # negative values for the women
-                 aes(x=val_age, y=-value,fill=classification),
-                 stat="identity",position = "stack", color="white", width = 1,
-           size = 0.1) +
-    # add a scale. We don't want a legend for cases. Only deaths, so we pass only a single value to the breaks argument
-    scale_fill_manual( breaks = c("Positive"), values = c("#EB7E3C", "#7cb4f7")) +
+  geom_bar(data=subset(pos_age_sex_long, cat_sex=="Female"),
+           # negative values for the women
+           aes(y=cat_age, x=-value,fill=classification), 
+           stat="identity",position = "stack", color="white", width = 1,size = 0.1) +
+  # add a scale. We don't want a legend for cases. Only deaths, so we pass only a single value to the breaks argument
+  scale_fill_manual( breaks = c("Positive"), values = c(pos_color, neg_color)) +
   # Pos rate labels for males and females (bold font)
-  geom_label(data=subset(pos_age_sex,cat_sex=="Male"  & !is.na(val_age)),
-                       aes(x=val_age, y=total_count,
-                           # label
-                           label = paste0("Pos: ", round(100* pos_test/total_count, 1), "%")),
-                           size = 2.7,  fontface = "bold", colour = "#b33e10",
-                           hjust = 0, vjust = 0.2, label.size = 0, fill = "transparent") +
-  geom_label(data=subset(pos_age_sex,cat_sex=="Female"  & !is.na(val_age)),
-                       aes(x=val_age, y=-total_count,
-                           # label
-                           label = paste0("Pos: ", round(100* pos_test/total_count, 1), "%")),
-                           size = 2.7,  fontface = "bold", colour = "#b33e10",
-                           hjust = 1, vjust = 0.2, label.size = 0, fill = "transparent") +
-    # Pos and total count labels (plain font)
-    geom_label(data=subset(pos_age_sex,cat_sex=="Male"  & !is.na(val_age)),
-                       aes(x=val_age, y=total_count,
-                           # label
-                           label = paste0("(",pos_test, " of ", total_count, ")")),
-                           size = 2.5,  fontface = "plain", colour = alpha("#b33e10", 0.8),
-                           hjust = 0, vjust = 1, label.size = 0, fill = "transparent") +
-    geom_label(data=subset(pos_age_sex,cat_sex=="Female"  & !is.na(val_age)),
-                        aes(x=val_age, y=-total_count,
-                           # label
-                           label = paste0("(",pos_test, " of ", total_count, ")")),
-                           size = 2.5,  fontface = "plain", colour = alpha("#b33e10", 0.8),
-                           hjust = 1, vjust = 1, label.size = 0, fill = "transparent") +
+  geom_label(data=subset(pos_age_sex,cat_sex=="Male"),
+             aes(y=cat_age, x=total_count, label = paste0("Pos: ", round(100* pos_test/total_count, 1), "%")),
+             size = 2.7,  fontface = "bold", 
+             hjust = 0, vjust = 0.2, label.size = 0, fill = "transparent") +
+  geom_label(data=subset(pos_age_sex,cat_sex=="Female"),
+             aes(y=cat_age, x=-total_count, label = paste0("Pos: ", round(100* pos_test/total_count, 1), "%")),
+             size = 2.7,  fontface = "bold", 
+             hjust = 1, vjust = 0.2, label.size = 0, fill = "transparent") +
+  # Pos and total count labels (plain font)
+  geom_label(data=subset(pos_age_sex,cat_sex=="Male"),
+             aes(y=cat_age, x=total_count, label = paste0("(",pos_test, " of ", total_count, ")")),
+             size = 2.5,  fontface = "plain", 
+             hjust = 0, vjust = 1, label.size = 0, fill = "transparent") +
+  geom_label(data=subset(pos_age_sex,cat_sex=="Female"),
+             aes(y=cat_age, x=-total_count, label = paste0("(",pos_test, " of ", total_count, ")")),
+             size = 2.5,  fontface = "plain", 
+             hjust = 1, vjust = 1, label.size = 0, fill = "transparent") +
   # Female and male labels
   # We put in manual annotations for where to place the FEMALE and MALE headers.
   # these are anchored to the mean value of case counts * 2.2
-  annotate("text", x= 8, y = -mean(pos_age_sex$total_count)* 1.3, label = "Female", size = 4, fontface = "bold", colour = "black") +
-    annotate("text", x= 8, y = mean(pos_age_sex$total_count)* 1.3, label = "Male", size = 4 , fontface = "bold", colour = "black" ) +
-  labs(x="Age group", y = "Count of Negative and Positive tests") +
-    theme(legend.title = element_blank(),
-          legend.position = "bottom") +
-    scale_y_continuous(
-      # expand the scale so that text labels are not cut off
-      limits = range(c(pos_age_sex$total_count * 1.25,
-               -pos_age_sex$total_count* 1.25 ),na.rm=T) ,
-      # absolute value labels
-      labels = abs) +
-      coord_flip()
+  annotate("label", y= 6, x = -mean(pos_age_sex$total_count)* 1.2, label = "Female", size = 4, fontface = "bold", colour = "white", fill =  "black") +
+  annotate("label", y= 6, x = mean(pos_age_sex$total_count)* 1.2, label = "Male", size = 4 , fontface = "bold", colour = "white", fill = "black" ) +
+  labs(x = "Count of seropositive and seronegative individuals", y = "") +
+  theme(legend.title = element_blank(),
+        legend.position = "bottom", 
+        axis.text.y = element_text(face = "bold", size = 10, color = "black")) +
+  # expand the scale so that text labels are not cut off
+  scale_x_continuous(limits = range(c(pos_age_sex$total_count * 1.25, -pos_age_sex$total_count* 1.25 ),na.rm=T) ,
+                     labels = abs) +
+  scale_y_discrete(expand = expansion(add = c(0,1.4)))
+```
+
+
+## Population-weighted and test-adjusted seroprevalence estimates 
+
+```{r}
+source(here("scripts/sero_estim.R"))
+
+igg_pos_table_print
+
+igm_pos_table_print
+```
+
+
+# COVID-19 related Symptoms
+
+
+## Symptoms among all symptomatic individuals
+
+```{r fig.width=7, fig.height= 3.6}
+
+yao %>%
+  filter(mcat_symp != "No symptoms") %>%
+  plot_upset(mcat_symp,
+             intersect_cutoff = 3,
+             denom = yao,
+             sep = "--",
+             set_size_lab = "Prevalence \n(n and % with this symptom)",
+             intersect_size_lab = "Co-prevalence \n (n and % with this combination of symptoms)"
+             )
+
 
 ```
 
-## Seropositivity breakdown table
+
+
+
+
+## Common symptoms in seropositive and seronegative individuals
+
+```{r fig.width=3.5, fig.height=5}
+
+sero_symptom_chi_square <- function(df, symp_name){
+
+p_val <- (df %>% 
+  filter(mcat_symp == symp_name) %>% 
+  # count those without the symp. There's prob a cleaner way
+  add_row(cat_pos = "Positive", 
+          mcat_symp = paste0("No", symp_name), 
+          n = .$sum[which(.$cat_pos == "Positive")] - 
+            .$n[which(.$cat_pos == "Positive")] ) %>% 
+    add_row(cat_pos = "Negative", 
+          mcat_symp = paste0("No", symp_name), 
+          n = .$sum[which(.$cat_pos == "Negative")] - 
+            .$n[which(.$cat_pos == "Negative")] ) %>% 
+  # pivot into contigency table
+  select(-c(sum, pct)) %>% 
+  pivot_wider(id_cols = cat_pos, names_from = mcat_symp, values_from = n) %>% 
+  column_to_rownames(var="cat_pos") %>% 
+  # run chi square
+  chisq.test())$p.value
+
+out <- paste(symp_name, p_val, sep = "--")
+
+return(out)
+
+}
+
+
+count_pos <- 
+  yao %>% 
+  count(cat_pos) %>% 
+  rename(sum = n)
+
+pos_cnt_for_caption <- count_pos[1,2]
+neg_cnt_for_caption <- count_pos[2,2]
+seropos_color <- my_orange
+seroneg_color <-  my_green
+
+
+
+symptoms_per_sero_cat <- 
+  yao %>% 
+  separate_rows(mcat_symp, sep = "--") %>% 
+  group_by(cat_pos, mcat_symp) %>% 
+  count() %>%
+  ungroup() %>% 
+  left_join(count_pos) %>% 
+  mutate(pct = 100*n/sum) %>% 
+  filter(!is.na(cat_pos)) %>% 
+  filter(mcat_symp != "No symptoms") 
+
+
+symptoms_chi <- map(.x = unique(symptoms_per_sero_cat$mcat_symp), 
+    .f = ~ sero_symptom_chi_square(df = symptoms_per_sero_cat, symp_name = .x) ) %>% 
+  flatten_chr() %>% 
+  as_tibble() %>% 
+  separate(col = value, into = c("mcat_symp", "p_val"), sep = "--", remove = TRUE) %>% 
+  mutate(p_val = as.numeric(p_val))
+
+
+symptoms_per_sero_cat %>%
+  left_join(symptoms_chi) %>%
+  mutate(mcat_symp = fct_reorder(mcat_symp, n)) %>%
+  mutate(cat_pos = fct_rev(cat_pos)) %>%
+  mutate(cat_pos = recode(cat_pos,
+    "Negative" = "Seronegative",
+    "Positive" = "Seropositive")) %>%
+  mutate(p_val = round(p_val, digits = 2),
+         p_val_paste = paste0("p = ", p_val), 
+         pct = round(pct, 1),
+         hjust = ifelse(pct < 2, 0, 1), 
+         color = ifelse(hjust == 0, "black", "white"))%>%
+  {
+    ggplot(.) +
+      geom_col(aes(x = pct, y = mcat_symp, fill = cat_pos),
+               position = position_dodge(width = 0.8), width = 0.8) +
+      geom_richtext(data = filter(., cat_pos == "Seropositive"), 
+                    aes(x = pct, y = mcat_symp, fill = cat_pos, 
+                        label = pct, hjust = hjust, color = color), 
+                    position = position_nudge(y = +0.2), 
+                    size = 2.6, fill = "transparent",
+                    label.padding = unit(c(0.1, 0.1, 0.1, 0.1), "lines"), 
+                    label.color = NA) +
+      geom_richtext(data = filter(., cat_pos == "Seronegative"), 
+                    aes(x = pct,  y = mcat_symp, fill = cat_pos, 
+                        label = pct, hjust = hjust, color = color), 
+                    position = position_nudge(y = -0.2), 
+                    size = 2.6, fill = "transparent",
+                    label.padding = unit(c(0.1, 0.1, 0.1, 0.1), "lines"), 
+                    label.color = NA) +
+      geom_text(data = filter(., p_val < 0.05 & p_val >= 0.01 & cat_pos == "Seropositive"),
+                aes(x = -0.7, y = mcat_symp), color = "black", fontface = "bold",
+                label = "*", position = position_nudge(y = -0.05)) +
+      geom_text(data = filter(., p_val < 0.01 & cat_pos == "Seropositive"),
+                aes(x = -0.7, y = mcat_symp), color = "black", fontface = "bold",
+                label = "**",  position = position_nudge(y = -0.05)) +
+      scale_x_continuous(expand = expansion(add = c(1.6, 4))) +
+      scale_fill_manual(values = c(seroneg_color, seropos_color)) +
+      scale_color_manual(values = c("black", "white")) +
+      theme(axis.text.y = element_text(face = "bold", color = "black"),
+            axis.title.x = element_text(face = "plain"), 
+            legend.position = c(0.75, 0.5), 
+            legend.direction = "vertical", 
+            plot.caption = element_text(face = "plain", color = "gray10")) +
+      labs(x = "Percentage with each symptom", y = "", fill = "", 
+           caption = paste("of", pos_cnt_for_caption, "seronegative and", 
+                           neg_cnt_for_caption, "seropositive individuals"
+                           )
+           ) + 
+      guides(fill = guide_legend(reverse = T), 
+             color = F)
+  }
+
+
+```
+
+
+
+
+## Have you taken one or several medications for symptoms characteristic of COVID-19?
+
+(Denominator of percentages is those who reported at least one symptom compatible with COVID-19)
+
+```{r fig.width=7, fig.height= 3.6}
+
+yao_symptoms <- 
+  yao %>% 
+  filter(mcat_symp != "No symptoms")
+
+
+yao %>%
+  filter(mcat_symp != "No symptoms") %>%
+  filter(mcat_drug != "No response") %>%
+  filter(!is.na(mcat_drug)) %>% 
+  plot_upset(cat_col = mcat_drug,
+             intersect_cutoff = 2,
+             denom = yao_symptoms,
+             sep = "--"
+             )
+
+```
+
+
+
+<!-- Divider divider you are here -->
+<!-- Divider divider you are here -->
+<!-- Divider divider you are here -->
+<!-- Divider divider you are here -->
+<!-- Divider divider you are here -->
+<!-- Divider divider you are here -->
+<!-- Divider divider you are here -->
+<!-- Divider divider you are here -->
+<!-- Divider divider you are here -->
+<!-- Divider divider you are here -->
+<!-- Divider divider you are here -->
+<!-- Divider divider you are here -->
+<!-- Divider divider you are here -->
+<!-- Divider divider you are here -->
+<!-- Divider divider you are here -->
+<!-- Divider divider you are here -->
+<!-- Divider divider you are here -->
+<!-- Divider divider you are here -->
+<!-- Divider divider you are here -->
+<!-- Divider divider you are here -->
+<!-- Divider divider you are here -->
+<!-- Divider divider you are here -->
+<!-- Divider divider you are here -->
+<!-- Divider divider you are here -->
+
+
+
+
+
+## Seropositivity breakdown table 1
 
 (see next page)
 
