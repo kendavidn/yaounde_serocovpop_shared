@@ -983,7 +983,7 @@ yao %>%
 ```{r}
 
 yao %>% 
-  countplotprint(has_contact_traveller, flip = T)
+  countplotprint(has_contact_traveler, flip = T)
 
 ```
 
@@ -1208,7 +1208,7 @@ yao %>%
 
 # 12 Other barriers to medical access (geography, perception)
 
-## 12.2 Have you had difficulty in accessing medical centers due to inavailability or raised prices of transport?
+## 12.1 Have you had difficulty in accessing medical centers due to inavailability or raised prices of transport?
 
 ```{r}
 yao %>% 
@@ -1232,6 +1232,15 @@ yao %>%
   filter(needs_care == 1) %>%
   countplotprint(has_diffic_travel_care, flip = T, na_relevel = T)
 ```
+
+## 12.2 Since March 1st, have you felt that...
+
+```{r fig.width=8, fig.height=3.8}
+yao %>% 
+  plot_upset(cat_col = mcat_diffic_find_care, 
+             intersect_cutoff = 1) 
+```
+
 
 
 \newpage
@@ -1356,7 +1365,7 @@ yao %>%
 
 ```{r}
 yao %>% 
-  countplotprint(has_confin_disrupted, flip = T, na_relevel = T)
+  countplotprint(has_confin_disrupted_life, flip = T, na_relevel = T)
 ```
 
 ## 14.2 Since March 1st, have you stopped working or stopped one of your jobs due to the confinement?

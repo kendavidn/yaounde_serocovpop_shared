@@ -1,0 +1,113 @@
+---
+title: "Numbers and figures requested for Prelim report"
+date: "`r Sys.Date()`"
+
+## Options for outputting HTML
+
+# output:
+#   rmarkdown::html_document:
+#     theme: cerulean
+#     toc: true
+#     toc_depth: 2
+#     toc_float: true
+# 
+
+
+# # Options for outputting PDF
+# output:
+#   bookdown::pdf_document2:
+#     fig_caption: yes
+#     toc: true
+#     number_sections: true
+#     latex_engine: xelatex
+#     includes:
+#       in_header: preamble.tex
+# mainfont: Avenir
+# fontsize: 10pt
+# geometry: left=2cm,right=2cm,top=2.5cm,bottom=2cm
+
+
+# Options for outputting Word
+output: word_document
+fontsize: 10pt
+
+
+## Other options
+# editor_options: 
+#   chunk_output_type: console
+# params: 
+#   mode: "word"
+---
+\newpage
+
+```{r readData, echo = FALSE, warning = F, message = F}
+library(here)
+source(here("scripts/load.R"))
+```
+
+```{r utilityFunctions}
+source(here("scripts/utils.R"))
+```
+
+# Figure 1
+
+```{r}
+
+source(here("final_paper/seropos_euler.R"))
+
+
+
+layout <- c(
+      area(1, 1, 6, 3), # spacer
+      area(1, 4, 6, 10), # intersection size (top right)
+      area(7, 1, 10, 3), # set size (bottom left)
+      area(7, 4, 10, 10) # intersection matrix (bottom right)
+    )
+
+plot(layout)
+
+patchwork::()
+
+
+
+seropos_euler_plot
+
+
+
+  }
+  
+  # plot(layout)
+  
+  out_p <- 
+    plot_spacer() + 
+    intersect_size_plot + 
+    set_size_plot + 
+    intersect_matrix_plot + 
+    plot_layout(design = layout) #&  
+    #theme(plot.background = element_rect(color = "#f5f5f5"))  
+  
+  
+  print(out_p)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

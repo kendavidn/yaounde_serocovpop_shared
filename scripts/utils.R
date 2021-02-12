@@ -186,7 +186,7 @@ plot_upset <- function(df, cat_col, denom = NA, id_col = "id_ind", intersect_cut
   intersect_size <-
     df_cut %>%
     count({{cat_col}}) %>%
-    mutate(prop = n / length(unique(df[[id_col]]))) %>%
+    mutate(prop = n / length(unique(denom[[id_col]]))) %>%
     mutate(countprop = paste0("**", n, "**", ",<br>", "<span style='color:gray30'>", 
                               round(100 * prop, 0), "%", "</span>")) %>% 
     mutate("{{cat_col}}" := fct_reorder({{cat_col}}, -n)) %T>% 
@@ -610,9 +610,6 @@ lang_rei_CI <-  function(
 # # 
 # 
 # 
-
-
-
 
 
 

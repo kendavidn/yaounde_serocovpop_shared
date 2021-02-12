@@ -13,18 +13,22 @@ yao_regn <-
   filter(!is.na(is_breadwin)) %>% 
   filter(!is.na(cat_BMI)) %>% 
   # replace NA
-  mutate(mcat_chronic = replace_na(mcat_chronic, "None")) 
+  mutate(mcat_chronic = replace_na(mcat_chronic, "None")) %>% 
+  mutate(cat_n_hhld_indiv = relevel(cat_n_hhld_indiv, "3 - 5"))
+  
 
+
+sample_for_infection_regn <- nrow(yao_regn)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #~  Functions ----
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # baseline risk for converting from odds ratio to relative risk
-base_risk <- 
-  tabyl(yao_regn$cat_pos_num) %>% 
-  pull(percent) %>% 
-  .[2]
+# base_risk <- 
+#   tabyl(yao_regn$cat_pos_num) %>% 
+#   pull(percent) %>% 
+#   .[2]
 
 count_per_group <- 
   function(df, col) {
@@ -48,7 +52,7 @@ regn_per_group <-
     }
   
   if(is.null(the_formula)) {
-    the_formula <- paste("cat_pos_num ~", col_string, "+ (1 | id_hhld)") %>% as.formula()
+    the_formula <- paste("cat_pos_num ~", col_string, "+ (1 | id_hhld)") 
   }
   # run regn and clean output
   df %>% 
@@ -58,21 +62,22 @@ regn_per_group <-
           control = glmerControl(optimizer = "bobyqa")) %>% 
       broom.mixed::tidy() %>% 
       filter(row_number()!= 1 & row_number()!= nrow(.) ) %>%  # drop first and last rows
-      mutate(estimate = exp(estimate),
-             upper_CI = estimate + 1.96 * std.error,
+      mutate(upper_CI = estimate + 1.96 * std.error,
              lower_CI = estimate - 1.96 * std.error, 
-             avg_rel_risk = estimate/( 1 - base_risk + ( base_risk * estimate) ),
-             signif = (upper_CI > 1 & lower_CI > 1) | (upper_CI < 1 & lower_CI < 1)
-      ) %>% 
-      mutate(estimate = format(estimate, digits = 2 ), 
+             estimate = exp(estimate),
+             upper_CI = exp(upper_CI),
+             lower_CI = exp(lower_CI),
+             signif = (upper_CI > 1 & lower_CI > 1) | (upper_CI < 1 & lower_CI < 1)) %>% 
+      mutate(estimate = format(estimate, digits = 2 ),
+             estimate = as.numeric(estimate),
              upper_CI = format(upper_CI, digits = 2 ),
+             upper_CI = as.numeric(upper_CI),
              lower_CI = round(lower_CI, digits = 2),
-             lower_CI = format(lower_CI, digits = 2 ), 
-             avg_rel_risk = format(avg_rel_risk, digits = 2 )
-      ) %>% 
+             lower_CI = format(lower_CI, digits = 2 ),
+             lower_CI = as.numeric(lower_CI)) %>% 
       mutate(labels = str_replace_all(term, col_string, "")) %>% 
       mutate(estimate_and_CI = paste0(estimate, " (", lower_CI, " - ", upper_CI, ")")) %>% 
-      select(labels, estimate_and_CI, lower_CI, estimate, upper_CI, avg_rel_risk, signif, p.value)
+      select(labels, estimate_and_CI, lower_CI, estimate, upper_CI, signif, p.value)
 }
 
 clean_count_and_regn <- 
@@ -109,12 +114,7 @@ sex_count_and_regn <-
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 age_count <- yao_regn %>% count_per_group(cat_age)
-
-age_regn <- 
-  yao_regn %>% 
-  # set reference level for regressions
-  mutate(cat_age = factor(cat_age, levels = c( "30 - 44", "5 - 14", "15 - 29", "45 - 64", "65 +") )) %>% 
-  regn_per_group(cat_age)
+age_regn <- yao_regn %>% regn_per_group(cat_age)
   
 age_count_and_regn <- 
   age_count %>% 
@@ -152,20 +152,20 @@ BMI_count_and_regn <-
   arrange(labels)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#~  Contact with traveller  ----
+#~  Contact with traveler  ----
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-contact_traveller_count <- yao_regn %>% count_per_group(has_contact_traveller)
-contact_traveller_regn <- yao_regn %>% regn_per_group(has_contact_traveller)
+contact_traveler_count <- yao_regn %>% count_per_group(has_contact_traveler)
+contact_traveler_regn <- yao_regn %>% regn_per_group(has_contact_traveler)
 
-contact_traveller_count_and_regn <- 
-  contact_traveller_count %>% 
-  left_join(contact_traveller_regn) %>% 
-  clean_count_and_regn(label = "Recent contact with an international traveller", 
-                       group = "has_contact_traveller")
+contact_traveler_count_and_regn <- 
+  contact_traveler_count %>% 
+  left_join(contact_traveler_regn) %>% 
+  clean_count_and_regn(label = "Contact with international traveler", 
+                       group = "has_contact_traveler")
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#~  Contact with traveller  ----
+#~  Contact with COVID case  ----
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 contact_COVID_count <- yao_regn %>% count_per_group(has_contact_COVID)
@@ -174,7 +174,7 @@ contact_COVID_regn <- yao_regn %>% regn_per_group(has_contact_COVID)
 contact_COVID_count_and_regn <- 
   contact_COVID_count %>% 
   left_join(contact_COVID_regn) %>% 
-  clean_count_and_regn(label = "Contact with suspected/confirmed COVID patient", 
+  clean_count_and_regn(label = "Contact with COVID case", 
                        group = "has_contact_COVID")
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -206,7 +206,7 @@ occup_count_and_regn <- function(df, col, occup_name) {
     df %>%
     mutate("{{ col }}" := if_else({{ col }} == 1, "Yes", "No")) %>%
     regn_per_group({{ col }},
-      the_formula = as.formula(paste("cat_pos_num ~", col_string, "+ (1 | id_hhld)")),
+      the_formula = paste("cat_pos_num ~", col_string, "+ (1 | id_hhld)"),
       col_string = col_string) %>% 
     select(-labels)
 
@@ -282,7 +282,7 @@ distancing_regn <-
 distancing_count_and_regn <- 
   distancing_count %>% 
   left_join(distancing_regn) %>% 
-  clean_count_and_regn(label = "Have you followed social distancing rules?", group = "is_breadwin")
+  clean_count_and_regn(label = "Have you followed social distancing rules?", group = "is_respecting_distancing")
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -326,6 +326,8 @@ cat_n_hhld_indiv_regn <-
 cat_n_hhld_indiv_count_and_regn <- 
   cat_n_hhld_indiv_count %>% 
   left_join(cat_n_hhld_indiv_regn) %>% 
+  mutate(labels = factor(labels, levels = c("1 - 2", "3 - 5", "\\> 5"))) %>% 
+  arrange(labels) %>% 
   clean_count_and_regn(label = "Number of household members", group = "cat_n_hhld_indiv")
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -351,12 +353,15 @@ has_hhld_children_count_and_regn <-
 #~  Combine and plot  ----
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+plot_only_p_below_0.1 <- TRUE
+
+
 all_sections_univariate <- 
   sex_count_and_regn %>% 
   bind_rows(age_count_and_regn) %>% 
   bind_rows(educ_count_and_regn)  %>% 
   bind_rows(BMI_count_and_regn)  %>% 
-  bind_rows(contact_traveller_count_and_regn) %>% 
+  bind_rows(contact_traveler_count_and_regn) %>% 
   bind_rows(contact_COVID_count_and_regn) %>% 
   bind_rows(chronic_count_and_regn) %>% 
   bind_rows(occup_section) %>% 
@@ -366,28 +371,15 @@ all_sections_univariate <-
   bind_rows(cat_n_hhld_indiv_count_and_regn) %>% 
   bind_rows(has_hhld_children_count_and_regn) %>% 
   mutate(labels = fct_inorder(labels)) %>% 
-  # Add "reference" to reference rows
-  mutate(estimate_and_CI = if_else(labels %in% c("30 - 44", # age
-                                                 "18.5 - 24.9", # BMI
-                                                 "No contact with traveller",
-                                                 "No COVID contact",
-                                                 "No formal instruction", 
-                                                 "Female", 
-                                                 "Not breadwinner",
-                                                 "Definitely yes", # followed distancing rules
-                                                 "No comorbidity",
-                                                 "Cité Verte", 
-                                                 "1 - 2", 
-                                                 "No children"),
-                                   "*Reference*",
-                                   estimate_and_CI
-                                   )) %>% 
   #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   #~  Filter out p-value not lower than 0.1 
   #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  group_by(group) %>% 
-  filter(min.p.value < 0.1 | group == "cat_age") %>% 
-  ungroup() %>% 
+  {if (plot_only_p_below_0.1 == TRUE)
+    {group_by(., group) %>% 
+      filter(min.p.value < 0.1 | group == "cat_age") %>% 
+      ungroup()}
+    else {.}
+  } %>% 
   # row ids
   mutate(rowid = rev(1:nrow(.)))
 
@@ -396,7 +388,11 @@ all_sections_univariate <-
 #~ Multivariate ----
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-signif_vars <- paste(unique(all_sections_univariate$group), "+", collapse = " ")
+
+
+vars_to_paste <- unique(all_sections_univariate$group)
+vars_to_paste <- vars_to_paste[!vars_to_paste %in% "mcat_occup"]
+signif_vars <- paste(vars_to_paste, "+", collapse = " ")
 
 all_regn <-
   yao_regn %>%
@@ -406,30 +402,51 @@ all_regn <-
         family = binomial(),
         control = glmerControl(optimizer = "bobyqa")) %>%
   broom.mixed::tidy() %>%
-  filter(row_number()!= 1 & row_number()!= nrow(.) ) %>%
+  filter(row_number()!= 1 & row_number()!= nrow(.) ) %>%   # remove intercept and random parameter
   mutate(labels = str_replace(term, paste(unique(all_sections_univariate$group), collapse = "|"), "")) %>%
   select(labels, estimate, std.error, p.value) %>% 
-  mutate(estimate = exp(estimate),
-         upper_CI = estimate + 1.96 * std.error,
+  mutate(upper_CI = estimate + 1.96 * std.error,
          lower_CI = estimate - 1.96 * std.error, 
-         avg_rel_risk = estimate/( 1 - base_risk + ( base_risk * estimate) ),
+         estimate = exp(estimate),
+         upper_CI = exp(upper_CI),
+         lower_CI = exp(lower_CI),
          signif = (upper_CI > 1 & lower_CI > 1) | (upper_CI < 1 & lower_CI < 1)) %>% 
-  mutate(estimate = format(estimate, digits = 2 ), 
+  mutate(estimate = format(estimate, digits = 2 ),
+         estimate = as.numeric(estimate),
          upper_CI = format(upper_CI, digits = 2 ),
+         upper_CI = as.numeric(upper_CI),
          lower_CI = round(lower_CI, digits = 2),
-         lower_CI = format(lower_CI, digits = 2 ), 
-         avg_rel_risk = format(avg_rel_risk, digits = 2 )) %>% 
+         lower_CI = format(lower_CI, digits = 2 ),
+         lower_CI = as.numeric(lower_CI)) %>% 
   mutate(estimate_and_CI = paste0(estimate, " (", lower_CI, " - ", upper_CI, ")")) %>% 
   select(labels, 
          multi_estimate_and_CI = estimate_and_CI,
-         multi_avg_rel_risk = avg_rel_risk, 
+         multi_estimate = estimate,
+         multi_lower_CI = lower_CI,
+         multi_upper_CI = upper_CI,
          multi_signif = signif, 
          multi_p.value = p.value)
 
-
 all_sections <- 
   all_sections_univariate %>% 
-  left_join(all_regn) 
+  left_join(all_regn) %>% 
+  # Add "reference" to reference rows
+  mutate(across(.cols = c(estimate_and_CI, multi_estimate_and_CI), 
+                .fns = ~ if_else(labels %in% c("30 - 44", # age
+                                             "18.5 - 24.9", # BMI
+                                             "No contact with traveler",
+                                             "No COVID contact",
+                                             "No formal instruction", 
+                                             "Female", 
+                                             "Not breadwinner",
+                                             "Definitely yes", # followed distancing rules
+                                             "No comorbidity",
+                                             "Cité Verte", 
+                                             "3 - 5", # number in household
+                                             "No children"),
+                               "*Reference*",
+                               .x )
+                ))
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -441,28 +458,37 @@ update_geom_defaults("text", list(size = 3))
 update_geom_defaults("richtext", list(size = 3))
 theme_set(theme_void())
 
+# y axis expansion (common to all plots)
+
+y_axis_expansion <- c(1,3)
+
 
 
 table_sec1 <-
   all_sections %>%
   mutate(pos_over_n = ifelse(!is.na(n), paste0(pos, " / ", n ), NA )) %>% 
   ggplot() +
+  # overall group labels
   geom_richtext(data = subset(all_sections,  is.na(n)), aes(y = labels, x = 0, label = labels), hjust = 0, fill = NA, label.color = NA) +
+  # group subsections
   geom_richtext(data = subset(all_sections, !is.na(n)), aes(y = labels, x = 0.2, label = labels), hjust = 0, fill = NA, label.color = NA) +
-  geom_text(aes(y = labels, x = 3.5, label = n)) +
-  geom_text(aes(y = labels, x = 4.5, label = pos)) +
-  annotate("text", x = 0, y = max(all_sections$rowid) + 1, label = "Variable", hjust = 0, fontface = "bold", size = 3.3) +
-  annotate("text", x = 3.5, y = max(all_sections$rowid) + 1, label = "n", hjust = 0.5, fontface = "bold", size = 3.3) +
-  annotate("text", x = 4.5, y = max(all_sections$rowid) + 1, label = "Positive", hjust = 0.5, fontface = "bold", size = 3.3) +
+  # n count
+  geom_text(aes(y = labels, x = 3.3, label = n)) +
+  # pos count
+  geom_text(aes(y = labels, x = 4, label = pos)) +
+  # table column names
+  annotate("text", x = 0, y = max(all_sections$rowid) + 1, label = "Variable", hjust = 0, fontface = "bold") +
+  annotate("text", x = 3.3, y = max(all_sections$rowid) + 1, label = "n", hjust = 0.5, fontface = "bold") +
+  annotate("text", x = 4, y = max(all_sections$rowid) + 1, label = "Pos.", hjust = 0.5, fontface = "bold") +
   theme_void() +
   geom_stripes(aes(y = labels), odd = "#11111111", even = "#00000000") +
   scale_y_discrete(limits = rev(all_sections$labels),
-                   expand = expansion(add = c(0.5, 2))) +
-  scale_x_continuous(expand = expansion(add = c(0.5, 0.5)))
+                   expand = expansion(add = y_axis_expansion)) +
+  scale_x_continuous(expand = expansion(add = c(0.2, 0.2))) + 
+  coord_cartesian(clip = "off")
 
 
-
-positive_barplot <- 
+positive_pct_plot <- 
   all_sections %>% 
   mutate(pct_fill = ifelse(!is.na(pct), 100, NA)) %>% 
   ggplot() + 
@@ -470,26 +496,30 @@ positive_barplot <-
   geom_col(aes(y = labels, x = pct_fill), fill = alpha(my_green, 0.2)) + 
   geom_col(aes(y = labels, x = pct), fill = my_green) + 
   geom_text(aes(y = labels, x = pct, label = pct), color = my_darkgreen, size = 3, hjust = -0.2 ) +
-  annotate("text", x = 50, y = max(all_sections$rowid) + 1, label = "% Positive",  fontface = "bold", size = 3.3, hjust = 0.5) +
+  annotate("text", x = 50, y = max(all_sections$rowid) + 1, label = "% Pos.",  fontface = "bold", hjust = 0.5) +
   annotate("text", x = 0, y = max(all_sections$rowid) + 1, label = "") + #placeholder
   scale_y_discrete(limits = rev(all_sections$labels), 
-                   expand = expansion(add = c(0.5, 2))) + 
+                   expand = expansion(add = y_axis_expansion)) + 
   scale_x_continuous(expand = expansion(add = c(30, 40))) + 
-  theme_void()
+  theme_void() + 
+  coord_cartesian(clip = "off")
 
-table_sec2 <-
+
+univariate_odds_tab <-
   all_sections %>%
   ggplot() +
   geom_richtext(aes(y = labels, x = 0, label = estimate_and_CI), hjust = 0.5, fill = NA, label.color = NA) +
-  annotate("text", x = 0, y = max(all_sections$rowid) + 1, label = "OR (95% CI)", hjust = 0.5, fontface = "bold", size = 3.3) +
+  annotate("text", x = 0, y = max(all_sections$rowid) + 1, label = "Univariate\nOR (95% CI)", 
+           hjust = 0.5, vjust = 0.2, fontface = "bold") +
   theme_void() +
   geom_stripes(aes(y = labels), odd = "#11111111", even = "#00000000") +
   scale_y_discrete(limits = rev(all_sections$labels),
-                   expand = expansion(add = c(0.5, 2))) +
-  scale_x_continuous(expand = expansion(add = c(0.06, 0.1)))
+                   expand = expansion(add = y_axis_expansion)) +
+  scale_x_continuous(expand = expansion(add = c(0.06, 0.1))) + 
+  coord_cartesian(clip = "off")
 
 
-OR_plot_sec <- 
+univariate_odds_plot <- 
   all_sections %>% 
   ggplot() +
   scale_x_continuous(trans = pseudolog10_trans, 
@@ -500,40 +530,72 @@ OR_plot_sec <-
                   shape = 22, fill = "black", color = "black", size = 0.3) + 
   geom_point(data = subset(all_sections, signif == TRUE), 
              aes(y = labels, x = upper_CI), position = position_nudge(x = 0.1), shape = 8, size = 1.8) + 
-  annotate("text", x = 1, y = max(all_sections$rowid) + 1, label = "OR plot",  fontface = "bold", size = 3.3, hjust = 0.3) +
+  annotate("text", x = 1, y = max(all_sections$rowid) + 1, label = "Univariate\nOR plot",  fontface = "bold", 
+           hjust = 0.3, vjust = 0.2) +
   theme_void() + 
   annotate("text", x = 0, y = max(all_sections$rowid) + 1, label = "") + #placeholder
-  annotate("segment", x = 1, xend = 1,  y = 0.5, yend =  max(all_sections$rowid) + 0.5 , linetype = "dashed") +
+  annotate("segment", x = 1, xend = 1,  y = 0.5, yend =  max(all_sections$rowid), linetype = "dashed") +
   scale_y_discrete(limits = rev(all_sections$labels), 
-                   expand = expansion(add = c(0.5, 2))) + 
+                   expand = expansion(add = y_axis_expansion)) + 
   theme(axis.text.x = element_text(size = 8), 
         axis.line.x = element_line(), 
-        axis.ticks.x = element_line(size = 0.1))
+        axis.ticks.x = element_line(size = 0.1)) + 
+  coord_cartesian(clip = "off")
 
 
-table_sec3 <-
+
+multivariate_odds_tab <-
   all_sections %>%
   ggplot() +
-  geom_text(aes(y = labels, x = 0, label = avg_rel_risk), hjust = 0.5) +
-  annotate("text", x = 0, y = max(all_sections$rowid) + 1, label = "ARR", hjust = 0.5,  fontface = "bold", size = 3.3) +
+  geom_richtext(aes(y = labels, x = 0, label = multi_estimate_and_CI), hjust = 0.5, fill = NA, label.color = NA) +
+  annotate("text", x = 0, y = max(all_sections$rowid) + 1, label = "Multivariate\nOR (95% CI)", 
+           hjust = 0.5, vjust = 0.2, fontface = "bold") +
   theme_void() +
   geom_stripes(aes(y = labels), odd = "#11111111", even = "#00000000") +
   scale_y_discrete(limits = rev(all_sections$labels),
-                   expand = expansion(add = c(0.5, 2))) +
-  scale_x_continuous(expand = expansion(add = c(0.1, 0.3)))
+                   expand = expansion(add = y_axis_expansion)) +
+  scale_x_continuous(expand = expansion(add = c(0.06, 0.1))) + 
+  coord_cartesian(clip = "off")
 
 
 
+multivariate_odds_plot <- 
+  all_sections %>% 
+  ggplot() +
+  scale_x_continuous(trans = pseudolog10_trans, 
+                     expand = expansion(add = c(0, 0.1)), 
+                     breaks = c(1, 2, 4, 8)) + 
+  geom_stripes(aes(y = labels), odd = "#11111111", even = "#00000000") + 
+  geom_pointrange(aes(y = labels, x = multi_estimate, xmin = multi_lower_CI, xmax = multi_upper_CI), 
+                  shape = 22, fill = "black", color = "black", size = 0.3) + 
+  geom_point(data = subset(all_sections, multi_signif == TRUE), 
+             aes(y = labels, x = multi_upper_CI), position = position_nudge(x = 0.1), shape = 8, size = 1.8) + 
+  annotate("text", x = 1, y = max(all_sections$rowid) + 1, label = "Multivariate\nOR plot",  fontface = "bold", 
+           hjust = 0.3, vjust = 0.2) +
+  theme_void() + 
+  annotate("text", x = 0, y = max(all_sections$rowid) + 1, label = "") + #placeholder
+  annotate("segment", x = 1, xend = 1,  y = 0.5, yend =  max(all_sections$rowid) , linetype = "dashed") +
+  scale_y_discrete(limits = rev(all_sections$labels), 
+                   expand = expansion(add = y_axis_expansion)) + 
+  theme(axis.text.x = element_text(size = 8), 
+        axis.line.x = element_line(), 
+        axis.ticks.x = element_line(size = 0.1)) + 
+  coord_cartesian(clip = "off")
 
-patchwork::wrap_plots(table_sec1,
-                      positive_barplot, 
-                      table_sec2,
-                      OR_plot_sec, 
-                      table_sec3, 
-                      nrow = 1, widths = c(4.7,2,2,1.5,1))
 
-
-
-
-
+infection_regn_plot <- patchwork::wrap_plots(table_sec1,
+                      positive_pct_plot, 
+                      univariate_odds_tab,
+                      univariate_odds_plot, 
+                      multivariate_odds_tab,
+                      multivariate_odds_plot,
+                      nrow = 1, widths = c(4.8,
+                                           2,
+                                           2,
+                                           1.5,
+                                           2, 
+                                           1.5
+                                           ))
+  
+  
 

@@ -1,7 +1,8 @@
 knitr::opts_chunk$set(echo = FALSE, warning = F, message = F, dpi = 300, cache = F,
                       fig.width = 6, 
                       fig.height = 1.75,
-                      fig.align = "center" )
+                      fig.align = "center", 
+                      dev="cairo_pdf")
 
 # force figures not to float
 knitr::opts_chunk$set(fig.pos = "!H", out.extra = "")
@@ -42,16 +43,24 @@ p_load(
   "huxtable",
   "lme4",
   "ggallin", # for log transformation accommodating negative values
-  "gggibbous",
+  "scatterpie",
   "ggspatial",
   "ggnewscale",
   "prevalence",
+  "sysfonts",
   "DescTools",
+  "packcircles",
+  "eulerr",
   "patch",  # remotes::install_github("r-rudra/patch")
   "tidyverse",
   "sf",
   "patchwork"
 )
+# 
+# font_add_google("Avenir Next")
+# library("extrafont")
+# extrafont::font_import()
+# extrafont::loadfonts()
 
 source(system.file("embedded","usecases.R",package = "patch"))
 
@@ -117,8 +126,10 @@ GeomRichtext$default_aes$family <- "Avenir Next"
 
 my_green <- "#32969B"
 my_darkgreen <- "#105659"
+my_verydarkgreen <- "#0e453e"
 my_lightgreen <- "#87ccc7"
 my_orange <- "#ff983d"
+my_darkorange <- "#b33605"
 
 
 # 
@@ -234,7 +245,7 @@ mutate(cat_educ = case_when(cat_educ == "ecole_secondaire" ~ "Secondary",
   mutate(has_contact_COVID = recode(has_contact_COVID, 
                                     "je_ne_sais_pas" = "I don't know"
   )) %>% 
-  mutate(has_contact_traveller = recode(has_contact_traveller, 
+  mutate(has_contact_traveler = recode(has_contact_traveler, 
                                         "je_ne_sais_pas" = "I don't know"
   )) %>% 
   mutate(rate_virus_serious = recode(rate_virus_serious, 
@@ -284,16 +295,21 @@ mutate(across(.cols = function(.x) is.character(.x) | is.factor(.x) , .fns = ~ s
   mutate(across(.cols = function(.x) is.character(.x) | is.factor(.x) , .fns = ~ str_replace_all(.x, "femme", "Female"))) %>% 
   mutate(across(.cols = function(.x) is.character(.x) | is.factor(.x) , .fns = ~ str_replace_all(.x, "homme", "Male"))) %>% 
   # Undo some unwanted cleaning side effects  ----
-mutate(mcat_recommend = str_replace_all(mcat_recommend, 
-                                        "Recommended a No-COVID consultation", "Recommended a non-COVID consultation"
-)) %>% 
+  mutate(mcat_recommend = str_replace_all(mcat_recommend, 
+                                        "Recommended a No-COVID consultation", "Recommended a non-COVID consultation")) %>% 
   # Convert dates to dates
   mutate(across(.cols = starts_with("dt_"), .fns = ~ as.Date(.x))) %>% 
+  # calculate BMI
   mutate(val_BMI =  val_weight_kg/(((val_height_cm)/100)^2)  ) %>% 
-  # filter out records not yet validated
+  # filter out records not validated. There are 4 people from one household that were accidentally interviewed. We drop them.
   filter(cat_validation_status == "validation_status_approved") %>% 
+  # # positivity categories
+  # mutate(cat_pos = if_else(cat_igg_result == "Positive" | cat_igm_result == "Positive", 
+  #                          "Positive", 
+  #                          "Negative")) %>% 
+  # mutate(cat_pos = factor(cat_pos, levels = c("Positive", "Negative"))) %>% 
   # positivity categories
-  mutate(cat_pos = if_else(cat_igg_result == "Positive" | cat_igm_result == "Positive", 
+  mutate(cat_pos = if_else(cat_igg_result == "Positive" , 
                            "Positive", 
                            "Negative")) %>% 
   mutate(cat_pos = factor(cat_pos, levels = c("Positive", "Negative"))) %>% 
@@ -305,7 +321,9 @@ mutate(mcat_recommend = str_replace_all(mcat_recommend,
   # age categories
   mutate(cat_age = cut(val_age, 
                        breaks = c(4.9,14,29,44,65,100), 
-                       labels = c("5 - 14", "15 - 29", "30 - 44", "45 - 64", "65 +"))) %>% 
+                       labels = c("5 - 14", "15 - 29", "30 - 44", "45 - 64", "65 +")), 
+         cat_age = fct_relevel(cat_age, "30 - 44")
+         ) %>% 
   # bmi categories
   mutate(cat_BMI = cut(val_BMI, 
                        breaks = c(0, 18.49, 24.99, 29.99, 100), 
@@ -313,16 +331,16 @@ mutate(mcat_recommend = str_replace_all(mcat_recommend,
          # set reference level for regressions
          cat_BMI = factor(cat_BMI, levels = c("18.5 - 24.9", "\\< 18.5 (Underweight)", "25 - 30 (Overweight)", " \\> 30 (Obese)") )
   ) %>% 
-  # contact with traveller 
-  mutate(has_contact_traveller = ifelse(is.na(has_contact_traveller), "I don't know", has_contact_traveller), 
-         has_contact_traveller = recode(has_contact_traveller, 
-                                        "No" = "No contact with traveller", 
-                                        "Yes" = "Recent contact with traveller", 
-                                        "I don't know" = "Unsure about traveller contact"), 
-         has_contact_traveller = factor(has_contact_traveller, 
-                                        levels = c("No contact with traveller",
-                                                   "Recent contact with traveller",
-                                                   "Unsure about traveller contact"))
+  # contact with traveler 
+  mutate(has_contact_traveler = ifelse(is.na(has_contact_traveler), "I don't know", has_contact_traveler), 
+         has_contact_traveler = recode(has_contact_traveler, 
+                                        "No" = "No contact with traveler", 
+                                        "Yes" = "Recent contact with traveler", 
+                                        "I don't know" = "Unsure about traveler contact"), 
+         has_contact_traveler = factor(has_contact_traveler, 
+                                        levels = c("No contact with traveler",
+                                                   "Recent contact with traveler",
+                                                   "Unsure about traveler contact"))
          ) %>% 
   # contact with COVID 
   mutate(has_contact_COVID = ifelse(is.na(has_contact_COVID), "I don't know", has_contact_COVID), 
@@ -341,10 +359,6 @@ mutate(mcat_recommend = str_replace_all(mcat_recommend,
                               "No" = "No comorbidity", 
                               "Yes" = "Has comorbidity")) %>%  
   mutate(has_chronic = factor(has_chronic, levels = c("No comorbidity", "Has comorbidity"))) %>% 
-  # education level 
-  mutate(cat_educ = recode(cat_educ, 
-                           "Doctorate" = "Other", 
-                           "No response" = "Other")) %>% 
   # is breadwinner 
   mutate(is_breadwin = recode(is_breadwin, 
                               "No response" = "Not breadwinner", 
@@ -357,7 +371,8 @@ mutate(mcat_recommend = str_replace_all(mcat_recommend,
   mutate(loc_hhld_area = str_to_title(loc_hhld_area),
          loc_hhld_area = recode(loc_hhld_area, 
                                 "Citeverte" = "Cité Verte", 
-                                "Tsingaoliga" = "Tsinga Oliga")) %>% 
+                                "Tsingaoliga" = "Tsinga Oliga"), 
+         loc_hhld_area = fct_relevel(loc_hhld_area, "Cité Verte")) %>% 
   # number in household
   mutate(n_hhld_indiv = n_hhld_adults + n_hhld_children) %>% 
   mutate(cat_n_hhld_indiv = cut(n_hhld_indiv, 
@@ -379,15 +394,62 @@ mutate(mcat_recommend = str_replace_all(mcat_recommend,
   mutate(has_COVID_symptoms_num  = ifelse(has_COVID_symptoms == "Yes", 1, 0)) %>% 
   mutate(is_smoker = factor(is_smoker, levels = c("Non-smoker", "Ex-smoker", "Smoker"))) %>% 
   #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  #~ Symptomatic Regression prep ----
+  #~ Socioecon impact questions ----
   #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   mutate(has_confin_stopped_work = factor(has_confin_stopped_work, levels = c("Yes", "No", "No response"))) %>% 
+  mutate(has_faced_violence = recode(has_faced_violence, "No response" = "NR")) %>% 
+  mutate(has_rev_dropped = recode(has_rev_dropped, "No response" = "NR")) %>% 
+  mutate(has_confin_disrupted_life = recode(has_confin_disrupted_life, "No response" = "NR")) %>% 
   #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   #~ Make sure factors are factors ----
   #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   mutate(cat_sex = factor(cat_sex, levels = c("Female", "Male"))) %>% 
-  mutate(cat_educ = as.factor(cat_educ))
+  mutate(cat_educ = as.factor(cat_educ)) %>% 
+  #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  #~ Determinants of health-seeking behavior regression prep ----
+  #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  # combine two variables: have you visited healthcare for COVID-like symptoms and have you visited for non-COVID-like symptoms
+  mutate(mcat_consult_nospace = str_replace_all(mcat_consult, " ", "_"),
+         mcat_consult_non_COVID_nospace = str_replace_all(mcat_consult_non_COVID, " ", "_")) %>% 
+  unite(col = mcat_consult_any, sep = "--", mcat_consult_nospace, mcat_consult_non_COVID_nospace, na.rm = T) %>% 
+  mutate(mcat_consult_any = str_split(mcat_consult_any, pattern = "--")) %>%  # split
+  mutate(mcat_consult_any = purrr::map(.x = .$mcat_consult_any, .f = ~unique(.x))) %>%  # drop duplicates
+  mutate(mcat_consult_any =  purrr::map_chr(.x = .$mcat_consult_any, .f = ~paste(.x, collapse = "--")), # recombine
+         mcat_consult_any = str_replace_all(mcat_consult_any, "_", " ")) %>% # replace underscore
+  mutate(mcat_consult_any = ifelse(mcat_consult_any == "", NA, mcat_consult_any)) %>% 
+  # acute symptoms and chronic conditions
+  mutate(has_acute_symp = ifelse(mcat_symp == "No symptoms", "No", "Yes")) %>% 
+  mutate(has_chron_or_symp = (has_acute_symp == "Yes" | has_chronic == "Has comorbidity")) %>% 
+  # Only two individuals responded with "Other" THey consulted a pharmacist and a kinesthesiologist
+  mutate(has_consult_formal_care = str_detect(mcat_consult_any, "Private|Public|Nurse|Doctor|Other"), 
+         has_consult_formal_care = replace_na(has_consult_formal_care, FALSE)
+  ) %>% 
+  mutate(has_diffic_pay_medic = recode(has_diffic_pay_medic, 
+                                       "I have not tried" = "No financial difficulty",
+                                       "No" = "No financial difficulty",
+                                       "No response" = "No financial difficulty", 
+                                       "Yes" = "Some financial difficulty")) %>% 
+  mutate(has_diffic_travel_care = recode(has_diffic_travel_care, 
+                                       "I have not tried" = "No travel difficulty",
+                                       "No" = "No travel difficulty",
+                                       "No response" = "No travel difficulty", 
+                                       "Yes" = "Some travel difficulty")) %>% 
+  mutate(thinks_clinics_dangerous_COVID = ifelse(str_detect(mcat_diffic_find_care, "dangerous"),
+                                              "Yes, dangerous", 
+                                              "Not dangerous")) %>% 
+  mutate(thinks_clinics_closed_COVID = ifelse(str_detect(mcat_diffic_find_care, "closed"),
+                                              "Yes, closed", 
+                                              "Not closed")) %>% 
+  mutate(thinks_clinics_price_hiked_COVID = ifelse(str_detect(mcat_diffic_find_care, "price"),
+                                              "Yes, price-hiked", 
+                                              "Not price-hiked")) %>% 
+  mutate(is_fearful_stigma = recode(is_fearful_stigma, 
+                                    "Yes" = "Worried about stigma", 
+                                    "No" = "Not worried about stigma",
+                                    "No response" = "Not worried about stigma"))
   
+
+
   
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -427,6 +489,9 @@ yao_hhld  <-
   bind_rows(yao_hhld_first_adults)
 
 
+yao_has_chron_or_symp <- 
+  yao %>% 
+  filter(has_chron_or_symp)
 
 
 # 

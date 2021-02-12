@@ -16,15 +16,23 @@ yaounde_dhs_age_sex <-
                        "n_female_dhs" = "Female"))
   
 
-# PanBio IgG validation from https://www.sciencedirect.com/science/article/pii/S1386653220303875#bib0060
+# sensitivity validation from https://www.sciencedirect.com/science/article/pii/S1386653220303875#bib0060
 positives <- 82 
-negatives <- 150
 true_positives <- 75
-false_positives <- 1
 false_negatives <- positives - true_positives
+
+
+# "Sensitivity was further evaluated with the UK panel of single timepoint collections from 82 hospitalized patients between 14–56 days post symptom onset. "
+
+
+# specificity validation from own work (Projet EPICO pdf)
+negatives <- 246
+false_positives <- 16
 true_negatives <- negatives - false_positives
+
 sens <- true_positives/(true_positives + false_negatives)
 spec <- true_negatives/(true_negatives + false_positives)
+
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -206,6 +214,20 @@ igg_pos_table_print <-
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+# We have no sensitivity validation study to use for PanBio IgM. Sensitivity is very time-dependent here anyways
+# Here I just put what it says on the product manual, assuming 100 individuals
+positives <- 100
+true_positives <- 96
+false_negatives <- positives - true_positives
+
+
+# specificity validation from own work (Projet EPICO pdf)
+negatives <- 246
+false_positives <- 17
+true_negatives <- negatives - false_positives
+
+sens <- true_positives/(true_positives + false_negatives)
+spec <- true_negatives/(true_negatives + false_positives)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #~  Age section  ----
@@ -247,7 +269,8 @@ igm_pos_table_age <-
                                    nsens = positives, ksens = true_positives, 
                                    nspec = negatives, kspec = true_negatives), 
          lang_rei_CI_lower = lang_rei_CI[[1]],
-         lang_rei_CI_upper = lang_rei_CI[[2]]
+         lang_rei_CI_upper = lang_rei_CI[[2]], 
+         rogan_gladen = ifelse(rogan_gladen < 0, 0, rogan_gladen)
   ) %>% 
   select(cat_age,strat_size_summ, n_pos_summ, raw_prev, raw_wilsonCI_lower, raw_wilsonCI_upper, 
          weighted_prev, weighted_wilsonCI_lower, weighted_wilsonCI_upper,
@@ -295,7 +318,8 @@ igm_pos_table_sex <-
                                    nsens = positives, ksens = true_positives, 
                                    nspec = negatives, kspec = true_negatives), 
          lang_rei_CI_lower = lang_rei_CI[[1]],
-         lang_rei_CI_upper = lang_rei_CI[[2]]
+         lang_rei_CI_upper = lang_rei_CI[[2]], 
+         rogan_gladen = ifelse(rogan_gladen < 0, 0, rogan_gladen)
   ) %>% 
   select(cat_sex,strat_size_summ, n_pos_summ, raw_prev, raw_wilsonCI_lower, raw_wilsonCI_upper, 
          weighted_prev, weighted_wilsonCI_lower, weighted_wilsonCI_upper,
@@ -342,7 +366,8 @@ igm_pos_table_overall <-
                                    nsens = positives, ksens = true_positives, 
                                    nspec = negatives, kspec = true_negatives), 
          lang_rei_CI_lower = lang_rei_CI[[1]],
-         lang_rei_CI_upper = lang_rei_CI[[2]]
+         lang_rei_CI_upper = lang_rei_CI[[2]], 
+         rogan_gladen = ifelse(rogan_gladen < 0, 0, rogan_gladen)
   ) %>% 
   select(strat_size_summ, n_pos_summ, raw_prev, raw_wilsonCI_lower, raw_wilsonCI_upper, 
          weighted_prev, weighted_wilsonCI_lower, weighted_wilsonCI_upper,
@@ -359,7 +384,7 @@ igm_pos_table_print <-
   bind_rows(igm_pos_table_sex) %>% 
   bind_rows(igm_pos_table_age) %>% 
   mutate(across(.cols = c(4:12), .fns = ~ 100 * .x)) %>% # to percentages
-  mutate(across(.cols = c(4:12), .fns = ~ format(.x, digits = 2))) %>% 
+  mutate(across(.cols = c(4:12), .fns = ~ format(.x, digits = 3))) %>% 
   transmute(
     Group = variable, 
     n = strat_size_summ, 
@@ -368,7 +393,7 @@ igm_pos_table_print <-
     Weighted = paste0(weighted_prev, "%", " (", weighted_wilsonCI_lower, " - ", weighted_wilsonCI_upper, ")"),
     `Weighted,\ntest-adjusted` = paste0(rogan_gladen, "%", " (", lang_rei_CI_lower, " - ", lang_rei_CI_upper, ")")
   ) %>% 
-  mutate(`Weighted,\ntest-adjusted` = " ") %>% 
+  #mutate(`Weighted,\ntest-adjusted` = " ") %>% 
   huxtable() %>% 
   set_contents(1, 1:3, c("", "", "") ) %>% 
   insert_row("", "n", "Seropos.", "Seroprevalence (95% confidence interval)", "", "", after = 0) %>% 
@@ -376,7 +401,7 @@ igm_pos_table_print <-
   set_bold(1, col = everywhere) %>% 
   theme_basic() %>% 
   set_latex_float("h!") %>% 
-  set_all_padding(0.5)
+  set_all_padding(0.5) 
 
 
 
