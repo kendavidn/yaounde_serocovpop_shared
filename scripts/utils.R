@@ -156,7 +156,16 @@ countplotprint <- function(df, col, flip = F, fct_reorder = F, fct_inseq = F, da
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-plot_upset <- function(df, cat_col, denom = NA, id_col = "id_ind", intersect_cutoff = 0, layout = NA, sep = "--",
+plot_upset <- function(df, 
+                       cat_col, 
+                       denom = NA, 
+                       id_col = "id_ind", 
+                       intersect_cutoff = 0, 
+                       layout = NA, 
+                       sep = "--",
+                       fill = my_green,
+                       intersect_max_bars = Inf, 
+                       # restrict_sets_to = NA,
                        set_size_lab = "Set size, \n % who ticked this option", 
                        intersect_size_lab = "Intersection size, \n % who ticked this combination"
                        ){
@@ -166,15 +175,28 @@ plot_upset <- function(df, cat_col, denom = NA, id_col = "id_ind", intersect_cut
     
   }
   
+  # df = yao %>%
+  #   filter(cat_igg_result == "Positive") %>%
+  #   filter(mcat_symp != "No symptoms")
+  # 
+  # cat_col = expr(mcat_symp)
+  # sep = "--"
+  # intersect_max_bars = 10
+  # denom =  yao %>% filter(cat_igg_result == "Negative")
+  # set_size_lab = "Prevalence \n(% and No. with this symptom)"
+  # intersect_size_lab = "Co-prevalence, \n % and no. with this combination of symptoms"
+  # intersect_cutoff = 0
+  # id_col = "id_ind"
   
   # Drop individuals with combinations that occur too infrequently
   # intersection size and matrix plot will use cut data frame
-  # set size will still use the full data frame
-  # but it will need to drop sets which are entirely not featured in the comb matrix
+  # set size will still use the full data frame at first
+  # but it will need, at the end, drop sets which are not featured in the combination matrix
   
   df_cut <- 
     df %>% 
-    group_by({{cat_col}}) %>% 
+    #group_by({{cat_col}}) %>% 
+    group_by(!!enquo(cat_col) ) %>% 
     add_tally() %>% 
     filter(n > intersect_cutoff) %>% 
     ungroup()
@@ -185,12 +207,16 @@ plot_upset <- function(df, cat_col, denom = NA, id_col = "id_ind", intersect_cut
   
   intersect_size <-
     df_cut %>%
-    count({{cat_col}}) %>%
+    count(!!enquo(cat_col)) %>%
     mutate(prop = n / length(unique(denom[[id_col]]))) %>%
-    mutate(countprop = paste0("**", n, "**", ",<br>", "<span style='color:gray30'>", 
-                              round(100 * prop, 0), "%", "</span>")) %>% 
-    mutate("{{cat_col}}" := fct_reorder({{cat_col}}, -n)) %T>% 
-    {.[1] %>% pull() %>% levels() ->> intersect_size_order}
+    mutate(prop_pct = 100 * prop) %>%
+    mutate(countprop = paste0("**", round(100 * prop, 0), "%", "**", ",<br>", "<span style='color:gray30'>", n, 
+                               "</span>")) %>% 
+    mutate(!!enquo(cat_col) := fct_reorder(!!enquo(cat_col), -n)) %>% 
+    arrange(-n) %>% 
+    slice_head(n = intersect_max_bars) %>% 
+    mutate(!!enquo(cat_col) := as.character(!!enquo(cat_col))) %T>% 
+    {.[1] %>% pull() ->> intersect_size_order}
   
   
   
@@ -206,14 +232,16 @@ plot_upset <- function(df, cat_col, denom = NA, id_col = "id_ind", intersect_cut
   
   set_size <- 
     df %>% 
-    select({{cat_col}}) %>% 
-    separate_rows({{cat_col}},sep = sep) %>% 
-    count({{cat_col}}) %>% 
-    filter({{cat_col}} %in% sets_to_keep) %>% 
-    mutate("{{cat_col}}" := fct_reorder({{cat_col}}, n)) %>%
+    select(!!enquo(cat_col)) %>% 
+    separate_rows(!!enquo(cat_col),sep = sep) %>% 
+    count(!!enquo(cat_col)) %>% 
+    filter(!!enquo(cat_col) %in% sets_to_keep) %>% 
+    #{if (!is.na(restrict_sets_to)) filter(., !!enquo(cat_col) %in% restrict_sets_to) else .} %>% 
+    mutate(!!enquo(cat_col) := fct_reorder(!!enquo(cat_col), n)) %>%
     mutate(prop = n / length(unique(denom[[id_col]]))) %>%
-    mutate(countprop = paste0("**", n, "**", ", ", "<span style='color:gray30'>", 
-                              round(100 * prop, 0), "%", "</span>")) %T>% 
+    mutate(prop_pct = 100 * prop) %>%
+    mutate(countprop = paste0("**", round(100 * prop, 0), "%","**", ", ", "<span style='color:gray30'>", 
+                              n, "</span>"))  %T>% 
     {.[1] %>% pull() %>% levels() ->> set_size_order}
   
   #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -224,7 +252,6 @@ plot_upset <- function(df, cat_col, denom = NA, id_col = "id_ind", intersect_cut
   
   set_names <- 
     intersect_size[,1] %>% 
-    mutate("{{cat_col}}" := as.character({{cat_col}})) %>% 
     separate_rows(1, sep = sep) %>% 
     pull(1) %>% unique()
   
@@ -245,7 +272,7 @@ plot_upset <- function(df, cat_col, denom = NA, id_col = "id_ind", intersect_cut
     as_tibble() %>% 
     mutate(across(.cols = 2:ncol(.), .fns = ~ replace_na(.x, 0))) %>% 
     pivot_longer(cols = 2:ncol(.), names_to = "set") %>% 
-    mutate("{{cat_col}}" :=factor({{cat_col}}, levels = intersect_size_order )) %>% 
+    mutate(!!enquo(cat_col) :=factor(!!enquo(cat_col), levels = intersect_size_order )) %>% 
     mutate(set = factor(set, levels = set_size_order ) )# %>% 
     # filter(!is.na(set))
     
@@ -258,7 +285,7 @@ plot_upset <- function(df, cat_col, denom = NA, id_col = "id_ind", intersect_cut
   intersect_matrix_plot <- 
     intersect_matrix %>% 
     ggplot() + 
-    geom_point(aes(y = set , x = {{cat_col}}, size = value, alpha = value)) + 
+    geom_point(aes(y = set , x = !!enquo(cat_col), size = value, alpha = value)) + 
     geom_stripes(data = intersect_matrix,
                  aes(y = set)) +
     scale_size_continuous(range = c(2.2,3.8)) + 
@@ -292,9 +319,10 @@ plot_upset <- function(df, cat_col, denom = NA, id_col = "id_ind", intersect_cut
   
   intersect_size_plot <- 
     intersect_size %>% 
+    mutate(!!enquo(cat_col):= fct_reorder(!!enquo(cat_col), -n)) %>% 
     ggplot() +
-    geom_col(aes(x = {{cat_col}}, y = n), fill = my_green, width = 0.5) +
-    geom_richtext(aes(x = {{cat_col}} , y = n, label = countprop), 
+    geom_col(aes(x = !!enquo(cat_col), y = prop_pct), fill = fill, width = 0.5) +
+    geom_richtext(aes(x = !!enquo(cat_col) , y = prop_pct, label = countprop), 
                   size = 2.5, alpha = 0.85, vjust = -0.2, 
                   label.padding = unit(c(0.1, 0.1, 0.1, 0.1), "lines")) +
     scale_y_continuous(expand = expansion(mult = c(0, 0.2))) +
@@ -308,7 +336,7 @@ plot_upset <- function(df, cat_col, denom = NA, id_col = "id_ind", intersect_cut
       plot.margin = unit(c(0,0,0,0), "lines"),
       axis.ticks.x.bottom = element_blank(),
       axis.title.y = element_blank(), 
-      plot.title = element_text(size = 8),
+      plot.title = element_text(size = 8, face = "bold"),
       axis.line.y = element_line()
     )
   
@@ -316,8 +344,8 @@ plot_upset <- function(df, cat_col, denom = NA, id_col = "id_ind", intersect_cut
   set_size_plot <-  
     set_size %>% 
     ggplot() +
-    geom_col(aes(x = {{cat_col}}, y = n), fill = my_green, width = 0.5) +
-    geom_richtext(aes(x = {{cat_col}} , y = n, label = countprop), 
+    geom_col(aes(x = !!enquo(cat_col), y = prop_pct), fill = fill, width = 0.5) +
+    geom_richtext(aes(x = !!enquo(cat_col) , y = prop_pct, label = countprop), 
                   size = 2.5, alpha = 0.85, hjust = 1.14, 
                   label.padding = unit(c(0.1, 0.1, 0.1, 0.1), "lines")
                   ) +
@@ -327,7 +355,7 @@ plot_upset <- function(df, cat_col, denom = NA, id_col = "id_ind", intersect_cut
     labs(x = "") + 
     labs(y = set_size_lab) + 
     theme(
-      axis.title.x = element_text(size = 8),
+      axis.title.x = element_text(size = 8, face = "bold"),
       plot.margin = unit(c(0,0,0,0), "lines"),
       axis.title.y = element_blank(),
       axis.text.y = element_blank(), 
@@ -360,6 +388,215 @@ plot_upset <- function(df, cat_col, denom = NA, id_col = "id_ind", intersect_cut
   
 }
 
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#   plot_upset2 FUNCTION ----
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+plot_upset2 <- function(df,
+                       cat_col,
+                       denom = NA,
+                       id_col = "id_ind",
+                       intersect_cutoff = 0,
+                       layout = NA,
+                       sep = "--",
+                       subtitle = "",
+                       fill = my_green,
+                       intersect_max_bars = Inf,
+                       # restrict_sets_to = NA,
+                       set_size_lab = "Set size, \n % who ticked this option",
+                       intersect_size_lab = "Intersection size, \n % who ticked this combination"
+){
+
+  if(is.na(denom)){
+    denom <- df
+    
+  }
+
+  # df = yao %>%
+  #   filter(cat_igg_result == "Positive") %>%
+  #   filter(mcat_symp != "No symptoms")
+  # 
+  # cat_col = expr(mcat_symp)
+  # sep = "--"
+  # intersect_max_bars = 10
+  # denom =  yao %>% filter(cat_igg_result == "Negative")
+  # set_size_lab = "Prevalence \n(% and No. with this symptom)"
+  # intersect_size_lab = "Co-prevalence, \n % and no. with this combination of symptoms"
+  # intersect_cutoff = 0
+  # id_col = "id_ind"
+  # fill = my_green
+  # subtitle = ""
+
+  
+  # Drop individuals with combinations that occur too infrequently
+  # intersection size and matrix plot will use cut data frame
+  # set size will still use the full data frame at first
+  # but it will need, at the end, drop sets which are not featured in the combination matrix
+  
+  df_cut <- 
+    df %>% 
+    #group_by({{cat_col}}) %>% 
+    group_by(!!enquo(cat_col) ) %>% 
+    add_tally() %>% 
+    filter(n > intersect_cutoff) %>% 
+    ungroup()
+  #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  #~  Calculate intersection size----
+  #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  
+  
+  intersect_size <-
+    df_cut %>%
+    count(!!enquo(cat_col)) %>%
+    mutate(prop = n / length(unique(denom[[id_col]]))) %>%
+    mutate(prop_pct = 100 * prop) %>%
+    mutate(countprop = paste0("**", round(100 * prop, 0), "%","**", ", ", "<span style='color:gray30'>", 
+                              "(", n, ")", "</span>")) %>% 
+    mutate(!!enquo(cat_col) := fct_reorder(!!enquo(cat_col), -n)) %>% 
+    arrange(-n) %>% 
+    slice_head(n = intersect_max_bars) %>% 
+    mutate(!!enquo(cat_col) := as.character(!!enquo(cat_col))) %T>% 
+    {.[1] %>% pull() ->> intersect_size_order}
+  
+  
+  
+  #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  #~  Calculate set size  ----
+  #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  # sets to keep are those sets will be featured in matrix plot
+  sets_to_keep <- 
+    intersect_size_order %>% 
+    as_tibble() %>% 
+    separate_rows(1,  sep = sep) %>% 
+    pull(1) %>% unique()
+  
+  set_size <- 
+    df %>% 
+    select(!!enquo(cat_col)) %>% 
+    separate_rows(!!enquo(cat_col),sep = sep) %>% 
+    count(!!enquo(cat_col)) %>% 
+    filter(!!enquo(cat_col) %in% sets_to_keep) %>% 
+    #{if (!is.na(restrict_sets_to)) filter(., !!enquo(cat_col) %in% restrict_sets_to) else .} %>% 
+    mutate(!!enquo(cat_col) := fct_reorder(!!enquo(cat_col), n)) %>%
+    mutate(prop = n / length(unique(denom[[id_col]]))) %>%
+    mutate(prop_pct = 100 * prop) %>%
+    mutate(countprop = paste0("**", round(100 * prop, 0), "%","**", ", ", "<span style='color:gray30'>", 
+                              n, "</span>"))  %T>% 
+    {.[1] %>% pull() %>% levels() ->> set_size_order}
+  
+  #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  #~  Derive intersection matrix from intersect_size object ----
+  #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  
+  ## extract column names for upset data frame
+  
+  set_names <- 
+    intersect_size[,1] %>% 
+    separate_rows(1, sep = sep) %>% 
+    pull(1) %>% unique()
+  
+  ##  convert from tibble to df, fill in df then back to tibble
+  
+  intersect_matrix_init <- data.frame(intersect_size[,1])
+  
+  for (row in 1:nrow(intersect_matrix_init)) {
+    for (i in set_names) {
+      if (str_detect(intersect_matrix_init[row, 1], i)) {
+        intersect_matrix_init[row, i] <- 1
+      }
+    }
+  }
+  
+  intersect_matrix <- 
+    intersect_matrix_init %>% 
+    as_tibble() %>% 
+    mutate(across(.cols = 2:ncol(.), .fns = ~ replace_na(.x, 0))) %>% 
+    pivot_longer(cols = 2:ncol(.), names_to = "set") %>% 
+    mutate(!!enquo(cat_col) :=factor(!!enquo(cat_col), levels = intersect_size_order )) %>% 
+    mutate(set = factor(set, levels = set_size_order ) )# %>% 
+  # filter(!is.na(set))
+  
+  
+  
+  #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  #~  Plot data ----
+  #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  
+  intersect_matrix_plot <- 
+    intersect_matrix %>% 
+    mutate(!!enquo(cat_col):= fct_rev(!!enquo(cat_col))) %>% 
+    ggplot() + 
+    geom_point(aes(x = set , y = !!enquo(cat_col), size = value, alpha = value)) + 
+    geom_stripes(data = intersect_matrix,
+                 aes(y = !!enquo(cat_col))) +
+    scale_size_continuous(range = c(2.2,3.8)) + 
+    scale_alpha_continuous(range = c(0.08,1)) + 
+    scale_y_discrete(expand = expansion(add = c(0.75, 0.75)), position = "left") +
+    scale_x_discrete(expand = expansion(add = c(0.5, 0.5)), position = "top") +
+    labs(subtitle = subtitle) + 
+    theme_classic() +
+    theme(legend.position = "none",
+          axis.text.y = element_blank(), 
+          axis.ticks.x.bottom = element_blank(), 
+          axis.text.x.top = element_text(angle = 60, hjust = 0),
+          axis.ticks.y = element_blank(),
+          axis.title = element_blank(),
+          plot.title.position = "plot",
+          plot.subtitle = element_text(hjust = 0, size = 12, face = "bold"), 
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank() , 
+          panel.border = element_blank()
+          #panel.border = element_rect(colour = "black", fill=NA, size = 1),
+          #axis.line.y.right = element_line(colour = "white", size = 2)
+    ) 
+  
+  if (intersect_cutoff == 0 ){
+    intersect_matrix_plot <- intersect_matrix_plot + 
+      labs(y = "")
+  } else if (intersect_cutoff == 1 ){
+    intersect_matrix_plot <- intersect_matrix_plot + 
+      labs(y = paste0("Only combinations with more than ", intersect_cutoff ," individual are shown."))
+  } else if (intersect_cutoff > 1 ){
+    intersect_matrix_plot <- intersect_matrix_plot + 
+      labs(y = paste0("Only combinations with more than ", intersect_cutoff," individuals are shown."))
+  } 
+  
+  
+  intersect_size_plot <- 
+    intersect_size %>% 
+    mutate(!!enquo(cat_col):= fct_reorder(!!enquo(cat_col), n)) %>% 
+    ggplot() +
+    geom_col(aes(y = !!enquo(cat_col), x = prop_pct), fill = fill, width = 0.5) +
+    geom_richtext(aes(y = !!enquo(cat_col) , x = prop_pct, label = countprop), 
+                  size = 2.5, alpha = 0.85,  hjust = -0.1, label.color = NA,
+                  label.padding = unit(c(0.1, 0.1, 0.1, 0.1), "lines")) +
+    scale_x_continuous(expand = expansion(mult = c(0, 0.2))) +
+    scale_y_discrete(expand = expansion(add = c(0.75, 0.75))) +
+    coord_cartesian(clip = "off") +
+    labs(x = intersect_size_lab) +
+    theme(
+      axis.text.y = element_blank(),
+      axis.title.y = element_blank(),
+      axis.title.x = element_text(size = 8, family = "Avenir Next"),
+      plot.title = element_blank(), 
+      #panel.border = element_rect(colour = "black", fill=NA, size = 1),
+      panel.border = element_blank(),
+      axis.line.y.left = element_line(colour = "white", size = 2)
+    ) 
+  
+  
+  #out_plots <- wrap_plots(intersect_matrix_plot, intersect_size_plot, nrow =1, widths = c(0.3, 0.7))
+  out_plots <- 
+    cowplot::plot_grid(intersect_matrix_plot, intersect_size_plot, 
+                       align = "h", 
+                       nrow =1,rel_widths = c(0.3, 0.7))
+          
+  return(out_plots)
+  
+}
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #~  Lang Rei confidence interval ----

@@ -185,7 +185,15 @@ yao %>%
 igg_pos_table_print <- 
   igg_pos_table_overall %>% 
   bind_rows(igg_pos_table_sex) %>% 
-  bind_rows(igg_pos_table_age) %>% 
+  bind_rows(igg_pos_table_age) %>%
+  # arrange properly
+  mutate(variable  = factor(variable, levels = c("Total", "Female", "Male", 
+                                                 "5 - 14", "15 - 29", 
+                                                 "30 - 44", "45 - 64", 
+                                                 "65 +"))) %>% 
+  arrange(variable) %>% 
+  mutate(variable = as.character(variable)) %>% 
+  # etc.
   mutate(across(.cols = c(4:12), .fns = ~ 100 * .x)) %>% # to percentages
   mutate(across(.cols = c(4:12), .fns = ~ format(.x, digits = 3))) %>% 
   transmute(
@@ -199,11 +207,11 @@ igg_pos_table_print <-
   huxtable() %>% 
   set_contents(1, 1:3, c("", "", "") ) %>% 
   insert_row("", "n", "Seropos.", "Seroprevalence (95% confidence interval)", "", "", after = 0) %>% 
-  merge_cells(1, 4:6) %>% 
+  #merge_cells(1, 4:6) %>% 
   set_bold(1, col = everywhere) %>% 
   theme_basic() %>% 
   set_latex_float("h!") %>% 
-  set_all_padding(0.5)
+  set_all_padding(0.5) 
 
 
 

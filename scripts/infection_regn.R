@@ -24,6 +24,27 @@ sample_for_infection_regn <- nrow(yao_regn)
 #~  Functions ----
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+
+# sensitivity validation from https://www.sciencedirect.com/science/article/pii/S1386653220303875#bib0060
+positives <- 82 
+true_positives <- 75
+false_negatives <- positives - true_positives
+
+
+# "Sensitivity was further evaluated with the UK panel of single timepoint collections from 82 hospitalized patients between 14–56 days post symptom onset. "
+
+
+# specificity validation from own work (Projet EPICO pdf)
+negatives <- 246
+false_positives <- 16
+true_negatives <- negatives - false_positives
+
+sens <- true_positives/(true_positives + false_negatives)
+spec <- true_negatives/(true_negatives + false_positives)
+
+
+### WE MIGHT COME BACK AND FIX THIS LATER. THE TABLE SHOULD IDEALLY SHOW THE CORRECTED SEROPREV
+
 # baseline risk for converting from odds ratio to relative risk
 # base_risk <- 
 #   tabyl(yao_regn$cat_pos_num) %>% 
@@ -37,6 +58,7 @@ count_per_group <-
     summarise(n = n(),
               pos = sum(cat_pos_num)) %>%
     mutate(pct = pos / n,
+           #pct = (pct + spec - 1)/(spec + sens - 1), # rogan_gladen correction
            pct = 100 * pct,
            pct = round(pct, 1),
            pos_pct = paste0(pos, " (", pct, ")")) %>% 
@@ -93,6 +115,8 @@ clean_count_and_regn <-
     mutate(min.p.value = min(p.value, na.rm = T)) 
     
 }
+
+
 
 
 
@@ -454,14 +478,22 @@ all_sections <-
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   
 # change text size
-update_geom_defaults("text", list(size = 3))
-update_geom_defaults("richtext", list(size = 3))
-theme_set(theme_void())
+# update_geom_defaults("text", list(size = 3))
+# update_geom_defaults("richtext", list(size = 3))
+# theme_set(theme_void())
 
 # y axis expansion (common to all plots)
 
 y_axis_expansion <- c(1,3)
+# 
+# neg_color <- alpha("firebrick3", 0.2) 
+# pos_color <- alpha("firebrick3", 0.7)
+# text_color <- "firebrick4"
 
+
+# GeomText$default_aes$family <- "Avenir Next"
+# GeomLabel$default_aes$family <- "Avenir Next"
+# GeomRichText$default_aes$family <- "Avenir Next"
 
 
 table_sec1 <-
@@ -469,17 +501,17 @@ table_sec1 <-
   mutate(pos_over_n = ifelse(!is.na(n), paste0(pos, " / ", n ), NA )) %>% 
   ggplot() +
   # overall group labels
-  geom_richtext(data = subset(all_sections,  is.na(n)), aes(y = labels, x = 0, label = labels), hjust = 0, fill = NA, label.color = NA) +
+  geom_richtext(data = subset(all_sections,  is.na(n)), aes(y = labels, x = 0, label = labels), family = "Avenir Next", size = 2.7, hjust = 0, fill = NA, label.color = NA) +
   # group subsections
-  geom_richtext(data = subset(all_sections, !is.na(n)), aes(y = labels, x = 0.2, label = labels), hjust = 0, fill = NA, label.color = NA) +
+  geom_richtext(data = subset(all_sections, !is.na(n)), aes(y = labels, x = 0.2, label = labels), family = "Avenir Next", size = 3, hjust = 0, fill = NA, label.color = NA) +
   # n count
-  geom_text(aes(y = labels, x = 3.3, label = n)) +
+  geom_text(aes(y = labels, x = 3.3, label = n), size = 3) +
   # pos count
-  geom_text(aes(y = labels, x = 4, label = pos)) +
+  geom_text(aes(y = labels, x = 4, label = pos), size = 3) +
   # table column names
-  annotate("text", x = 0, y = max(all_sections$rowid) + 1, label = "Variable", hjust = 0, fontface = "bold") +
-  annotate("text", x = 3.3, y = max(all_sections$rowid) + 1, label = "n", hjust = 0.5, fontface = "bold") +
-  annotate("text", x = 4, y = max(all_sections$rowid) + 1, label = "Pos.", hjust = 0.5, fontface = "bold") +
+  annotate("text", x = 0, y = max(all_sections$rowid) + 1, label = "", size = 2.7, hjust = 0, fontface = "bold") +
+  annotate("text", x = 3.3, y = max(all_sections$rowid) + 1, label = "n", size = 2.7, hjust = 0.5, fontface = "bold") +
+  annotate("text", x = 4, y = max(all_sections$rowid) + 1, label = "Pos.", size = 2.7, hjust = 0.5, fontface = "bold") +
   theme_void() +
   geom_stripes(aes(y = labels), odd = "#11111111", even = "#00000000") +
   scale_y_discrete(limits = rev(all_sections$labels),
@@ -493,10 +525,17 @@ positive_pct_plot <-
   mutate(pct_fill = ifelse(!is.na(pct), 100, NA)) %>% 
   ggplot() + 
   geom_stripes(aes(y = labels), odd = "#11111111", even = "#00000000") + 
-  geom_col(aes(y = labels, x = pct_fill), fill = alpha(my_green, 0.2)) + 
-  geom_col(aes(y = labels, x = pct), fill = my_green) + 
-  geom_text(aes(y = labels, x = pct, label = pct), color = my_darkgreen, size = 3, hjust = -0.2 ) +
-  annotate("text", x = 50, y = max(all_sections$rowid) + 1, label = "% Pos.",  fontface = "bold", hjust = 0.5) +
+  # # background fill
+  geom_col(aes(y = labels, x = pct_fill), fill = "gray88" ) + 
+  # column fill
+  geom_col(aes(y = labels, x = pct),fill = alpha("firebrick3", 0.65) ) + 
+  geom_text(aes(y = labels, x = pct, label = pct ), fontface = "plain", color = "violetred4", size = 3, hjust = -0.1 ) +
+  # background fill
+  # geom_col(aes(y = labels, x = pct_fill), fill = neg_color) + 
+  # # column fill
+  # geom_col(aes(y = labels, x = pct), fill = pos_color) + 
+  # geom_text(aes(y = labels, x = pct, label = pct), color = text_color, size = 3, hjust = -0.2 ) +
+  annotate("text", x = 50, y = max(all_sections$rowid) + 1, label = "% Pos.", size = 2.7,  fontface = "bold", hjust = 0.5) +
   annotate("text", x = 0, y = max(all_sections$rowid) + 1, label = "") + #placeholder
   scale_y_discrete(limits = rev(all_sections$labels), 
                    expand = expansion(add = y_axis_expansion)) + 
@@ -508,9 +547,9 @@ positive_pct_plot <-
 univariate_odds_tab <-
   all_sections %>%
   ggplot() +
-  geom_richtext(aes(y = labels, x = 0, label = estimate_and_CI), hjust = 0.5, fill = NA, label.color = NA) +
+  geom_richtext(aes(y = labels, x = 0, label = estimate_and_CI), family = "Avenir Next", size = 3, hjust = 0.5, fill = NA, label.color = NA) +
   annotate("text", x = 0, y = max(all_sections$rowid) + 1, label = "Univariate\nOR (95% CI)", 
-           hjust = 0.5, vjust = 0.2, fontface = "bold") +
+           hjust = 0.5, vjust = 0.2, fontface = "bold", size = 2.7) +
   theme_void() +
   geom_stripes(aes(y = labels), odd = "#11111111", even = "#00000000") +
   scale_y_discrete(limits = rev(all_sections$labels),
@@ -531,7 +570,7 @@ univariate_odds_plot <-
   geom_point(data = subset(all_sections, signif == TRUE), 
              aes(y = labels, x = upper_CI), position = position_nudge(x = 0.1), shape = 8, size = 1.8) + 
   annotate("text", x = 1, y = max(all_sections$rowid) + 1, label = "Univariate\nOR plot",  fontface = "bold", 
-           hjust = 0.3, vjust = 0.2) +
+           hjust = 0.3, vjust = 0.2, size = 2.7) +
   theme_void() + 
   annotate("text", x = 0, y = max(all_sections$rowid) + 1, label = "") + #placeholder
   annotate("segment", x = 1, xend = 1,  y = 0.5, yend =  max(all_sections$rowid), linetype = "dashed") +
@@ -547,9 +586,9 @@ univariate_odds_plot <-
 multivariate_odds_tab <-
   all_sections %>%
   ggplot() +
-  geom_richtext(aes(y = labels, x = 0, label = multi_estimate_and_CI), hjust = 0.5, fill = NA, label.color = NA) +
+  geom_richtext(aes(y = labels, x = 0, label = multi_estimate_and_CI), family = "Avenir Next", size = 3, hjust = 0.5, fill = NA, label.color = NA) +
   annotate("text", x = 0, y = max(all_sections$rowid) + 1, label = "Multivariate\nOR (95% CI)", 
-           hjust = 0.5, vjust = 0.2, fontface = "bold") +
+           hjust = 0.5, vjust = 0.2, fontface = "bold" ,size = 2.7) +
   theme_void() +
   geom_stripes(aes(y = labels), odd = "#11111111", even = "#00000000") +
   scale_y_discrete(limits = rev(all_sections$labels),
@@ -571,7 +610,7 @@ multivariate_odds_plot <-
   geom_point(data = subset(all_sections, multi_signif == TRUE), 
              aes(y = labels, x = multi_upper_CI), position = position_nudge(x = 0.1), shape = 8, size = 1.8) + 
   annotate("text", x = 1, y = max(all_sections$rowid) + 1, label = "Multivariate\nOR plot",  fontface = "bold", 
-           hjust = 0.3, vjust = 0.2) +
+           hjust = 0.3, vjust = 0.2, size = 2.7) +
   theme_void() + 
   annotate("text", x = 0, y = max(all_sections$rowid) + 1, label = "") + #placeholder
   annotate("segment", x = 1, xend = 1,  y = 0.5, yend =  max(all_sections$rowid) , linetype = "dashed") +
@@ -583,7 +622,8 @@ multivariate_odds_plot <-
   coord_cartesian(clip = "off")
 
 
-infection_regn_plot <- patchwork::wrap_plots(table_sec1,
+infection_regn_plot <- 
+  patchwork::wrap_plots(table_sec1,
                       positive_pct_plot, 
                       univariate_odds_tab,
                       univariate_odds_plot, 
@@ -596,6 +636,5 @@ infection_regn_plot <- patchwork::wrap_plots(table_sec1,
                                            2, 
                                            1.5
                                            ))
-  
-  
+
 

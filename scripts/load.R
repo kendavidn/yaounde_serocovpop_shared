@@ -31,10 +31,13 @@ p_load(
   "purrr",
   "scales",
   "lubridate",
+  "ISOweek",
   "highcharter",
   "leaflet",
   "grid",
   "gridExtra",
+  "gridGraphics",
+  "cowplot",
   "magrittr",
   "devtools",
   "ggforestplot",
@@ -56,6 +59,8 @@ p_load(
   "sf",
   "patchwork"
 )
+
+#p_unload("all")
 # 
 # font_add_google("Avenir Next")
 # library("extrafont")
@@ -83,10 +88,11 @@ scale_fill_discrete <- function(...) {
   scale_fill_manual(..., values = my_palette)
 }
 
+addTaskCallback(function(...) {set.seed(11);TRUE})
 
 # theme
 my_theme <- theme_classic() +
-  theme(text = element_text( size = 12.5, family = "Avenir Next"),
+  theme(text = element_text(size = 12.5, family = "Avenir Next"),
         rect = element_blank(), # transparent background
         plot.title = (element_text(face = "bold", hjust = 0.5, size = 13)),
         plot.subtitle = (element_text( hjust = 0.5, size = 8, color = alpha("black", 0.7))),
@@ -94,8 +100,9 @@ my_theme <- theme_classic() +
         legend.position = "bottom",
         legend.text = element_text(size = 8),
         legend.key.size = unit(1,"line"),
-        axis.title = element_text(size = 10),
-        axis.text = element_text(size = 9 ),
+        axis.title = element_text(size = 8),
+        legend.title = element_text(size = 8),
+        axis.text = element_text(size = 8),
         axis.line = element_line(color = "gray40", size = 0.5),
         axis.line.y = element_blank(),
         panel.grid.major = element_line(color = alpha("gray50", 0.1), size = 0.25), 
@@ -111,16 +118,14 @@ my_theme <- theme_classic() +
 
 theme_set(my_theme)
 
-options(scipen=999) # turn off scientific notation
 
-set.seed(1) # fix seed
+options(scipen=999) # turn off scientific notation
 
 options(tibble.print_max = 35, tibble.print_min = 35)
 
 GeomText$default_aes$family <- "Avenir Next"
 GeomLabel$default_aes$family <- "Avenir Next"
 GeomRichText$default_aes$family <- "Avenir Next"
-GeomRichtext$default_aes$family <- "Avenir Next"
 
 ## colors
 
@@ -309,9 +314,13 @@ mutate(across(.cols = function(.x) is.character(.x) | is.factor(.x) , .fns = ~ s
   #                          "Negative")) %>% 
   # mutate(cat_pos = factor(cat_pos, levels = c("Positive", "Negative"))) %>% 
   # positivity categories
-  mutate(cat_pos = if_else(cat_igg_result == "Positive" , 
+  mutate(cat_pos = NA_character_) %>% 
+  mutate(cat_pos = ifelse(cat_igg_result == "Positive" , 
                            "Positive", 
-                           "Negative")) %>% 
+                           cat_pos)) %>% 
+  mutate(cat_pos = ifelse(cat_igg_result == "Negative" , 
+                           "Negative", 
+                           cat_pos)) %>% 
   mutate(cat_pos = factor(cat_pos, levels = c("Positive", "Negative"))) %>% 
   #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   #~ Infection Regression prep ----

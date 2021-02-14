@@ -46,8 +46,14 @@ hhlds_pie <-
   # 4 households had coordinates outside the shape boundaries. remove for neatness
   filter(loc_hhld_lat > 3.86 & loc_hhld_long < 11.515) %>%
   filter(!(loc_hhld_lat < 3.871 & loc_hhld_long < 11.504)) %>%  
-  # # add jitter to latitude so that no exact overlaps. Otherwise geom_scatterpie behaves funny
-  # mutate(loc_hhld_lat = loc_hhld_lat + sample( (1:10e5)/10e9, size = nrow(.))) %>% 
+  # # add jitter to longitude and latitude to preserve location anonymity
+  mutate(loc_hhld_long = loc_hhld_long + sample( (1:10e5)/10e8, size = nrow(.))) %>% 
+  mutate(loc_hhld_long = loc_hhld_long - sample( (1:10e5)/10e8, size = nrow(.))) %>% 
+  mutate(loc_hhld_lat = loc_hhld_lat + sample( (1:10e5)/10e8, size = nrow(.))) %>% 
+  mutate(loc_hhld_lat = loc_hhld_lat - sample( (1:10e5)/10e8, size = nrow(.))) %>% 
+  # nudge locations below 3.873 upwards as they are falling off plot area
+  mutate(loc_hhld_lat = ifelse(loc_hhld_lat < 3.873, loc_hhld_lat + 0.001, loc_hhld_lat)) %>% 
+  mutate(loc_hhld_long = ifelse(loc_hhld_long > 11.513, loc_hhld_long - 0.001, loc_hhld_long)) %>% 
   # we must define the radius precisely (based on the long-lat coord system from the original map)
   mutate(radius = sqrt(n_hhld_indiv/scale_down_by))
  
@@ -64,15 +70,15 @@ hhlds_pie$loc_hhld_long_repel <- circles_repelled$layout$x
 hhlds_pie$loc_hhld_lat_repel <- circles_repelled$layout$y
 
 
-scatterpie_map <- 
+map_plot <- 
   yao_map %>% 
   left_join(region_prevalence) %>% 
   ggplot() + 
   geom_sf(aes(fill = prev), color = "gray50", size = 0.4) +
-  annotation_scale(location = "bl", width_hint = 0.5, ) +
-  annotation_north_arrow(location = "bl", which_north = "true", 
-                         pad_x = unit(0.75, "in"), pad_y = unit(0.5, "in"),
-                         style = north_arrow_fancy_orienteering) +
+  annotation_scale(location = "bl", width_hint = 0.3) +
+  # annotation_north_arrow(location = "bl", which_north = "true", 
+  #                        pad_x = unit(0.75, "in"), pad_y = unit(0.5, "in"),
+  #                        style = north_arrow_fancy_orienteering) +
   geom_segment(data = subset(region_centroids, segment == "Yes") , 
                aes(long, lat, xend = long_adjusted, yend = lat_adjusted - 0.001), color = "black") +
   scale_size(range = c(1, 7), breaks = c(1,2,5,10)) + 
@@ -82,17 +88,13 @@ scatterpie_map <-
       # <span style = 'color:#ba210d;'>positive </span>and<span style = 'color:#1759d4;'> negative </span> <br>for SARS-CoV-2 antibodies", 
       # subtitle = "Fill color indicates overall prevalence in region"
        ) + 
-  theme_void() +
-  theme(panel.background = element_rect(fill = "white"), 
-        panel.grid.major = element_line(linetype = "dashed", color = "gray93"), 
-        panel.border = element_blank(),
-        plot.background =  element_rect(fill = "white"),
+  theme(panel.grid.major = element_line(color = "transparent"),
         axis.line.x.bottom = element_blank(),
         legend.title = element_text(size = 10), 
         legend.position = c(0.88, 0.78), 
         plot.title = element_markdown(size = 11, lineheight = 1.2, hjust = 0), 
         plot.subtitle = element_text(hjust = 0)) + 
-  scale_x_continuous(limits = c(11.462, 11.52)) + 
+  scale_x_continuous(limits = c(11.465, 11.52)) + 
   scale_fill_gradientn(colours = c("#FDFDC5", "#FFD8A1", "#fa9866"), name = "Regional\nprevalence") +
   ggnewscale::new_scale_fill() +
   geom_scatterpie(data = hhlds_pie, 
@@ -107,7 +109,7 @@ scatterpie_map <-
                          y=3.8955, 
                          n=2, 
                          labeller=function(x) round(((x)^2)*scale_down_by, 0) )  + 
-  annotate("text", label = "No. of residents", x = 11.511, y = 3.898, fontface = "bold", size = 3.5, 
+  annotate("text", label = "No. of residents", x = 11.509, y = 3.898, fontface = "bold", size = 3.5, 
            hjust = 0) + 
   geom_text(data = region_centroids, 
             aes(long_adjusted, lat_adjusted, label = region), color = "black", fontface = "bold")

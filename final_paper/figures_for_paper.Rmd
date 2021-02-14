@@ -41,6 +41,9 @@ fontsize: 10pt
 \newpage
 
 ```{r readData, echo = FALSE, warning = F, message = F}
+
+addTaskCallback(function(...) {set.seed(123);TRUE})
+
 library(here)
 source(here("scripts/load.R"))
 ```
@@ -49,54 +52,104 @@ source(here("scripts/load.R"))
 source(here("scripts/utils.R"))
 ```
 
-# Figure 1
+
+# Table 1 Sociodemographic characteristics of the final sample
 
 ```{r}
-
-source(here("final_paper/seropos_euler.R"))
-
-
-
-layout <- c(
-      area(1, 1, 6, 3), # spacer
-      area(1, 4, 6, 10), # intersection size (top right)
-      area(7, 1, 10, 3), # set size (bottom left)
-      area(7, 4, 10, 10) # intersection matrix (bottom right)
-    )
-
-plot(layout)
-
-patchwork::()
+source(here("scripts/sample_characteristics_2.R"))
+sample_characteristics_2_table
+```
 
 
+# Figure 2: Crude seroprevalence
 
-seropos_euler_plot
+```{r fig.width = 7.17, fig.height = 8.22}
+source(here("scripts/seropos_euler.R"))
+source(here("scripts/pos_age_sex_pyramid.R"))
 
+top_plots <- 
+  cowplot::plot_grid(plot_grid(seropos_euler_plot, scale = 0.9), 
+                   pos_age_sex_pyramid_plot, 
+                   nrow = 1, 
+                   rel_widths = c(3,7.6), labels = c("A", "B"))
 
+source(here("scripts/map2.R"))
 
-  }
-  
-  # plot(layout)
-  
-  out_p <- 
-    plot_spacer() + 
-    intersect_size_plot + 
-    set_size_plot + 
-    intersect_matrix_plot + 
-    plot_layout(design = layout) #&  
-    #theme(plot.background = element_rect(color = "#f5f5f5"))  
-  
-  
-  print(out_p)
-
+cowplot::plot_grid(top_plots, 
+                   plot_grid(map2_plot, labels = "C"), 
+                   ncol = 1, 
+                   rel_heights = c(3,6)
+                   )
 
 ```
 
 
+# Table 2 Population-weighted and test-adjusted seroprevalence estimates 
+
+```{r}
+source(here("scripts/sero_estim.R"))
+
+igg_pos_table_print
+```
+
+
+# Fig. 3 Risk factor analysis for SARS-CoV-2 IgG seropositivity
+
+```{r fig.width = 7.4, fig.height = 7.7}
+source(here("scripts/infection_regn.R"))
+
+infection_regn_plot
+```
+
+# Fig. 4 Symptomatiticity among IgG seropositive and seronegative respondents
+
+```{r fig.width = 7.4, fig.height = 7.8}
+neg_color <- alpha("dodgerblue2", 0.7) 
+pos_color <- alpha("firebrick3", 0.7)
+text_color <- "firebrick4"
+
+symptoms_among_igg_positive <- 
+  yao %>%
+  filter(cat_igg_result == "Positive") %>%
+  filter(mcat_symp != "No symptoms") %>% 
+  plot_upset2(mcat_symp,
+             sep = "--",
+             intersect_cutoff =  2,
+             subtitle = "",
+             fill = pos_color, 
+             denom =  yao %>% filter(cat_igg_result == "Positive"),
+             set_size_lab = "Prevalence \n(% and No. with this symptom)",
+             intersect_size_lab = "Co-prevalence, \n(% and no. with this combination of symptoms)"
+             ) %>% 
+  plot_grid() +
+  labs(caption = "of 302 IgG seropositive individuals") + 
+  theme(plot.caption = element_text(size = 6.5, color = "gray10", hjust = 1, family = "Avenir Next"))
 
 
 
+source(here("scripts/seropos_symptoms_euler.R"))
+source(here("scripts/symptoms_per_sero_cat_plot.R"))
 
+
+plot_grid(
+  plot_grid(plot_grid(seropos_symptoms_euler_plot, scale = 0.8), 
+            plot_grid(symptoms_among_igg_positive, scale = 0.98), ncol = 1, labels = "AUTO"),
+  plot_grid(symptoms_per_sero_cat_plot, scale = 0.98), 
+  ncol = 2, rel_widths = c(4.5,5.5),
+  labels = c("","C"))
+
+```
+
+
+# Supplementary Figure 1
+
+```{r fig.width=5.5, fig.height=6.88}
+source(here("scripts/trend_over_time.R"))
+
+trend_over_time_plot
+
+
+```
 
 
 
