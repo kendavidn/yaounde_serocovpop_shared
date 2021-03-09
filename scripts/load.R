@@ -1,8 +1,10 @@
 knitr::opts_chunk$set(echo = FALSE, warning = F, message = F, dpi = 300, cache = F,
                       fig.width = 6, 
                       fig.height = 1.75,
-                      fig.align = "center", 
-                      dev="cairo_pdf")
+                      fig.align = "center"
+                      #, 
+                      #dev="cairo_pdf"
+                      )
 
 # force figures not to float
 knitr::opts_chunk$set(fig.pos = "!H", out.extra = "")
@@ -40,9 +42,8 @@ p_load(
   "cowplot",
   "magrittr",
   "devtools",
-  "ggforestplot",
+  "ggforestplot", # devtools::install_github("NightingaleHealth/ggforestplot")
   "gt", 
-  "kableExtra",
   "huxtable",
   "lme4",
   "ggallin", # for log transformation accommodating negative values
@@ -53,6 +54,7 @@ p_load(
   "sysfonts",
   "DescTools",
   "packcircles",
+  "DescTools",
   "eulerr",
   "patch",  # remotes::install_github("r-rudra/patch")
   "tidyverse",
@@ -88,7 +90,7 @@ scale_fill_discrete <- function(...) {
   scale_fill_manual(..., values = my_palette)
 }
 
-addTaskCallback(function(...) {set.seed(11);TRUE})
+#addTaskCallback(function(...) {set.seed(11);TRUE})
 
 # theme
 my_theme <- theme_classic() +

@@ -163,6 +163,12 @@ plot_upset <- function(df,
                        intersect_cutoff = 0, 
                        layout = NA, 
                        sep = "--",
+                       intersect_size_lim_lower = NA, 
+                       intersect_size_lim_upper = NA,
+                       set_size_lim_lower = NA,
+                       set_size_lim_upper = NA,
+                       set_size_scale_y_expand_lower = 0.4,
+                       intersect_size_scale_x_expand_upper = 0.2, 
                        fill = my_green,
                        intersect_max_bars = Inf, 
                        # restrict_sets_to = NA,
@@ -210,8 +216,8 @@ plot_upset <- function(df,
     count(!!enquo(cat_col)) %>%
     mutate(prop = n / length(unique(denom[[id_col]]))) %>%
     mutate(prop_pct = 100 * prop) %>%
-    mutate(countprop = paste0("**", round(100 * prop, 0), "%", "**", ",<br>", "<span style='color:gray30'>", n, 
-                               "</span>")) %>% 
+    mutate(countprop = paste0("**", round(100 * prop, 0), "%","**", "<br>", "<span style='color:gray30'>", 
+                              "(", n, ")", "</span>")) %T>% 
     mutate(!!enquo(cat_col) := fct_reorder(!!enquo(cat_col), -n)) %>% 
     arrange(-n) %>% 
     slice_head(n = intersect_max_bars) %>% 
@@ -240,8 +246,8 @@ plot_upset <- function(df,
     mutate(!!enquo(cat_col) := fct_reorder(!!enquo(cat_col), n)) %>%
     mutate(prop = n / length(unique(denom[[id_col]]))) %>%
     mutate(prop_pct = 100 * prop) %>%
-    mutate(countprop = paste0("**", round(100 * prop, 0), "%","**", ", ", "<span style='color:gray30'>", 
-                              n, "</span>"))  %T>% 
+    mutate(countprop = paste0("**", round(100 * prop, 0), "%","**", "&nbsp;&nbsp;<span style='color:gray30'>", 
+                              "(", n, ")", "</span>")) %T>% 
     {.[1] %>% pull() %>% levels() ->> set_size_order}
   
   #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -323,9 +329,10 @@ plot_upset <- function(df,
     ggplot() +
     geom_col(aes(x = !!enquo(cat_col), y = prop_pct), fill = fill, width = 0.5) +
     geom_richtext(aes(x = !!enquo(cat_col) , y = prop_pct, label = countprop), 
-                  size = 2.5, alpha = 0.85, vjust = -0.2, 
+                  size = 2.5, alpha = 0.85, vjust = -0.2, label.color = NA,
                   label.padding = unit(c(0.1, 0.1, 0.1, 0.1), "lines")) +
-    scale_y_continuous(expand = expansion(mult = c(0, 0.2))) +
+    scale_y_continuous(expand = expansion(mult = c(0, intersect_size_scale_x_expand_upper)), 
+                       limits = c(intersect_size_lim_lower, intersect_size_lim_upper)) +
     scale_x_discrete(expand = expansion(add = c(0.75, 0.75))) +
     coord_cartesian(clip = "off") +
     labs(y = "") +
@@ -346,11 +353,13 @@ plot_upset <- function(df,
     ggplot() +
     geom_col(aes(x = !!enquo(cat_col), y = prop_pct), fill = fill, width = 0.5) +
     geom_richtext(aes(x = !!enquo(cat_col) , y = prop_pct, label = countprop), 
-                  size = 2.5, alpha = 0.85, hjust = 1.14, 
+                  size = 2.5, alpha = 0.85, hjust = 1.14, label.color = NA,
                   label.padding = unit(c(0.1, 0.1, 0.1, 0.1), "lines")
                   ) +
     scale_x_discrete(expand = expansion(add = c(0.5, 0.5))) +
-    scale_y_reverse(expand = expansion(mult = c(0.4, 0))) +
+    scale_y_reverse(expand = expansion(mult = c(set_size_scale_y_expand_lower, 0)), 
+                    limits = c(set_size_lim_lower, set_size_lim_upper)
+                    ) +
     coord_flip(clip = "off") +
     labs(x = "") + 
     labs(y = set_size_lab) + 
@@ -384,7 +393,7 @@ plot_upset <- function(df,
     #theme(plot.background = element_rect(color = "#f5f5f5"))  
   
   
-  print(out_p)
+  return(out_p)
   
 }
 
@@ -541,7 +550,7 @@ plot_upset2 <- function(df,
     theme(legend.position = "none",
           axis.text.y = element_blank(), 
           axis.ticks.x.bottom = element_blank(), 
-          axis.text.x.top = element_text(angle = 60, hjust = 0),
+          axis.text.x.top = element_text(angle = 60, hjust = 0, color = "black", family = "Avenir Next"),
           axis.ticks.y = element_blank(),
           axis.title = element_blank(),
           plot.title.position = "plot",

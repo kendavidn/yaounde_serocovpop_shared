@@ -42,7 +42,7 @@ fontsize: 10pt
 
 ```{r readData, echo = FALSE, warning = F, message = F}
 
-addTaskCallback(function(...) {set.seed(123);TRUE})
+#addTaskCallback(function(...) {set.seed(123);TRUE})
 
 library(here)
 source(here("scripts/load.R"))
@@ -51,6 +51,7 @@ source(here("scripts/load.R"))
 ```{r utilityFunctions}
 source(here("scripts/utils.R"))
 ```
+
 
 
 # Table 1 Sociodemographic characteristics of the final sample
@@ -103,7 +104,7 @@ infection_regn_plot
 
 # Fig. 4 Symptomatiticity among IgG seropositive and seronegative respondents
 
-```{r fig.width = 7.4, fig.height = 7.8}
+```{r fig.width = 8.5, fig.height = 8.5}
 neg_color <- alpha("dodgerblue2", 0.7) 
 pos_color <- alpha("firebrick3", 0.7)
 text_color <- "firebrick4"
@@ -111,10 +112,10 @@ text_color <- "firebrick4"
 symptoms_among_igg_positive <- 
   yao %>%
   filter(cat_igg_result == "Positive") %>%
-  filter(mcat_symp != "No symptoms") %>% 
+  #filter(mcat_symp != "No symptoms") %>% 
   plot_upset2(mcat_symp,
              sep = "--",
-             intersect_cutoff =  2,
+             intersect_max_bars = 10,
              subtitle = "",
              fill = pos_color, 
              denom =  yao %>% filter(cat_igg_result == "Positive"),
@@ -122,7 +123,7 @@ symptoms_among_igg_positive <-
              intersect_size_lab = "Co-prevalence, \n(% and no. with this combination of symptoms)"
              ) %>% 
   plot_grid() +
-  labs(caption = "of 302 IgG seropositive individuals") + 
+  labs(caption = "of 302 IgG seropositive individuals.\n Only the 10 most common symptom combinations are shown") + 
   theme(plot.caption = element_text(size = 6.5, color = "gray10", hjust = 1, family = "Avenir Next"))
 
 
@@ -143,23 +144,235 @@ plot_grid(
 
 # Supplementary Figure 1
 
-```{r fig.width=5.5, fig.height=6.88}
-source(here("scripts/trend_over_time.R"))
+```{r}
 
-trend_over_time_plot
-
+knitr::include_graphics(path = here("plots/study_flowchart.pdf"))
 
 ```
 
 
 
+# Supplementary Figure 2
+
+Sampling and seropositivity over time
+
+```{r fig.width=5.5, fig.height=6.88}
+source(here("scripts/trend_over_time.R"))
+
+trend_over_time_plot
+
+```
+
+
+# Supplementary Figure 3
+
+Healthcare attention among those who were IgG seropositive vs IgG seronegative
+
+```{r fig.width=7, fig.height=9}
+
+pos_igg_only_color <- alpha("firebrick3", 0.6)
+neg_color <- alpha("dodgerblue2", 0.7) 
+
+
+# Where did you consult for your acute symptoms? (Among those who were Igg seropositive)
+yao_is_igg_pos <-  
+  yao %>% 
+  filter(cat_igg_result == "Positive")
+
+igg_pos_consult_plot <- 
+  yao_is_igg_pos %>% 
+  #filter(mcat_consult_any != "No response") %>% 
+  mutate(mcat_consult = replace_na(mcat_consult, "None")) %>%
+  mutate(mcat_consult = recode(mcat_consult, "No response" = "None")) %>% 
+  plot_upset(cat_col = mcat_consult,
+             denom = yao_is_igg_pos,
+             sep = "--",
+             fill = pos_igg_only_color, 
+             set_size_lab = "Set size, \n % who consulted here", 
+             intersect_size_lab = "Intersection size, \n % who consulted with this combination",
+             intersect_cutoff = 0, 
+             intersect_size_scale_x_expand_upper = 0, 
+             set_size_lim_lower = 100,
+             intersect_size_lim_upper = 98 ) + 
+  labs(caption = "Among 302 IgG seropositive individuals") + 
+  theme(plot.caption = element_text(face = "plain"))
+
+yao_is_igg_neg <-  
+  yao %>% 
+  filter(cat_igg_result == "Negative")
+
+igg_neg_consult_plot <- 
+  yao_is_igg_neg %>% 
+  #filter(mcat_consult_any != "No response") %>% 
+  mutate(mcat_consult = replace_na(mcat_consult, "None")) %>% 
+  mutate(mcat_consult = recode(mcat_consult, "No response" = "None")) %>% 
+  plot_upset(cat_col = mcat_consult,
+             denom = yao_is_igg_neg,
+             sep = "--",
+             fill = neg_color,
+             set_size_lab = "Set size, \n % who consulted here", 
+             intersect_size_lab = "Intersection size, \n % who consulted with this combination",
+             intersect_cutoff = 0, 
+             intersect_size_lim_upper = 98,
+             set_size_lim_lower = 100,
+             intersect_size_scale_x_expand_upper = 0) + 
+  labs(caption = "Among 669 IgG seronegative individuals") + 
+  theme(plot.caption = element_text(face = "plain"))
+
+
+igg_consult_plot <- 
+  plot_grid(igg_pos_consult_plot, 
+            igg_neg_consult_plot, ncol = 1, scale = 0.95, 
+          labels = "AUTO")
+
+igg_consult_plot
+
+```
+
+
+### Number of IgG positives who did not consult any care
+
+```{r}
+
+consult_and_non_consult <- 
+  yao %>% 
+  filter(cat_igg_result == "Positive") %>% 
+  mutate(mcat_consult = replace_na(mcat_consult, "None")) %>% 
+  mutate(consulted_care = ifelse(mcat_consult == "None", "No consultation", "Consulted care")) %>% 
+  tabyl(consulted_care)
+
+
+consult_and_non_consult
+
+BinomCI(x = consult_and_non_consult$n[2], 
+        n = sum(consult_and_non_consult$n)) %>% 
+  as.data.frame() %>% 
+  huxtable(add_colnames = TRUE)
+
+```
+
+
+
+# Supplementary Figure 4
+
+Drugs taken by those who were IgG seropositive vs IgG seronegative
+
+```{r fig.width=7, fig.height=9}
+
+pos_igg_only_color <- alpha("firebrick3", 0.6)
+neg_color <- alpha("dodgerblue2", 0.7) 
+
+
+# What medication did you take for your acute symptoms? (Among those who were Igg seropositive)
+
+yao_is_igg_pos <-  
+  yao %>% 
+  filter(cat_igg_result == "Positive")
+
+igg_pos_drugs_plot <- 
+  yao_is_igg_pos %>% 
+  #filter(mcat_consult_any != "No response") %>% 
+  mutate(mcat_drug = replace_na(mcat_drug, "None")) %>% 
+  mutate(mcat_drug = recode(mcat_drug, "No response" = "None")) %>% 
+  mutate(mcat_drug = recode(mcat_drug, "No medication" = "None")) %>% 
+  plot_upset(cat_col = mcat_drug,
+             denom = yao_is_igg_pos,
+             sep = "--",
+             fill = pos_igg_only_color,
+             set_size_lab = "Set size, \n % who took this medication", 
+             intersect_size_lab = "Intersection size, \n % who took this combination of medications",
+             intersect_cutoff = 0, 
+             intersect_size_lim_upper = 80, 
+             set_size_lim_lower = 100,
+             intersect_max_bars = 14,
+             intersect_size_scale_x_expand_upper = 0
+             ) + 
+  labs(caption = "Among 302 IgG seropositive individuals\nOnly the 14 most common combinations are shown.") + 
+  theme(plot.caption = element_text(face = "plain"))
+
+yao_is_igg_neg <-  
+  yao %>% 
+  filter(cat_igg_result == "Negative")
+
+igg_neg_drugs_plot <- 
+  yao_is_igg_neg %>% 
+  #filter(mcat_consult_any != "No response") %>% 
+  mutate(mcat_drug = replace_na(mcat_drug, "None")) %>% 
+  mutate(mcat_drug = recode(mcat_drug, "No response" = "None")) %>% 
+  mutate(mcat_drug = recode(mcat_drug, "No medication" = "None")) %>% 
+  plot_upset(cat_col = mcat_drug,
+             denom = yao_is_igg_neg,
+             sep = "--",
+             fill = neg_color,
+             set_size_lab = "Set size, \n % who took this medication", 
+             intersect_size_lab = "Intersection size, \n % who took this combination of medications",
+             intersect_cutoff = 0, 
+             intersect_size_lim_upper = 80, 
+             set_size_lim_lower = 100,
+             intersect_max_bars = 14,
+             intersect_size_scale_x_expand_upper = 0
+             ) + 
+  labs(caption = "Among 669 IgG seronegative individuals\nOnly the 14 most common combinations are shown.") + 
+  theme(plot.caption = element_text(face = "plain"))
+
+igg_drugs_plot <- 
+  plot_grid(igg_pos_drugs_plot, 
+            igg_neg_drugs_plot, ncol = 1, scale = 0.95, 
+          labels = "AUTO")
+
+igg_drugs_plot
+
+
+```
+
+
+# Other Key numbers for paper
+
+## Among those who were IgG seropositive, what percentage reported any symptoms?
+
+```{r}
+with_and_without_symp <- 
+  yao %>% 
+  filter(cat_igg_result == "Positive") %>% 
+  tabyl(has_acute_symp)
+
+
+with_and_without_symp
+BinomCI(x = with_and_without_symp$n[1], 
+        n = sum(with_and_without_symp$n)) %>% 
+    as.data.frame() %>% 
+  huxtable(add_colnames = TRUE)
+
+```
+
+
+## What percentage (of household representatives) reported reduced income?
+
+```{r}
+
+rev_dropped_tabyl <- 
+  yao_hhld_heads %>% 
+  tabyl(has_rev_dropped)
+
+rev_dropped_tabyl
+
+BinomCI(x = rev_dropped_tabyl$n[3],
+        n = sum(rev_dropped_tabyl$n)
+  
+)
+
+
+```
+
+
+## Neighbourhood seroprevalence 
+
+```{r}
 
 
 
 
-
-
-
+```
 
 
 

@@ -25,24 +25,27 @@ seropos_euler_plot <-
                            alpha("darkslategrey", 0.8) )),
      #legend = list(side = "right"), 
      labels = list(fontfamily = "Avenir Next", 
-                   cex=0.85
+                   cex=0.7
                    ),
-     quantities = list(type = c("counts"),
-                       cex= c(0.7,0.7,0.7, 0.7) ,
+     quantities = list(type = c("counts", "percent"),
+                       cex= 0.6 ,
                        font = 1, 
                        fontfamily = "Avenir Next"
                        ), 
      edges = list(col = "transparent"))
 
 
+# 
+# yao %>% 
+#   select(id_ind, cat_igg_result, cat_igm_result) %>% 
+#   mutate(across(.fns = ~ replace_na(.x, "NA"))) %>% 
+#   mutate(cat_igg_positive = ifelse(cat_igg_result == "Positive", TRUE, FALSE)) %>% 
+#   mutate(cat_igg_NA = ifelse(cat_igg_result == "NA", TRUE, FALSE)) %>% 
+#   mutate(cat_igm_positive = ifelse(cat_igm_result == "Positive", TRUE, FALSE)) %>% 
+#   mutate(cat_igm_NA = ifelse(cat_igm_result == "NA", TRUE, FALSE)) %>% 
+#   ggvenn::ggvenn(c("cat_igg_positive", "cat_igg_NA", 
+#                    "cat_igm_positive", "cat_igm_NA"
+#                    ))
 
-yao %>% 
-  select(id_ind, cat_igg_result, cat_igm_result) %>% 
-  mutate(across(.fns = ~ replace_na(.x, "NA"))) %>% 
-  mutate(cat_igg_positive = ifelse(cat_igg_result == "Positive", TRUE, FALSE)) %>% 
-  mutate(cat_igg_NA = ifelse(cat_igg_result == "NA", TRUE, FALSE)) %>% 
-  mutate(cat_igm_positive = ifelse(cat_igm_result == "Positive", TRUE, FALSE)) %>% 
-  mutate(cat_igm_NA = ifelse(cat_igm_result == "NA", TRUE, FALSE)) %>% 
-  ggvenn::ggvenn(c("cat_igg_positive", "cat_igg_NA", 
-                   "cat_igm_positive", "cat_igm_NA"
-                   ))
+
+eulerr_options()
