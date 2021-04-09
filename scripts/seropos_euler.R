@@ -2,12 +2,10 @@
 
 set.seed(11)
 intersecting_inside <- euler(c(
-                                # add 1 because there is one person who was NA for the IgM test, and was negative for the IgG
-                                "Negative" = sum(yao$cat_igg_result == "Negative" & yao$cat_igm_result == "Negative", na.rm = T) + 1, 
+                                "Negative" = sum(yao$cat_igg_result == "Negative" & yao$cat_igm_result == "Negative", na.rm = T), 
                                "IgG Positive" = 0, #B
                                "IgM Positive" = 0,  #c
-                               # add 1 because there is one person who was NA for the IgM test, but was positive for the IgG
-                               "Negative&IgG Positive" = sum(yao$cat_igg_result == "Positive" & yao$cat_igm_result == "Negative", na.rm = T) + 1,
+                               "Negative&IgG Positive" = sum(yao$cat_igg_result == "Positive" & yao$cat_igm_result == "Negative", na.rm = T),
                                
                                
                                "Negative&IgM Positive"  = sum(yao$cat_igm_result == "Positive" & yao$cat_igg_result == "Negative", na.rm = T), 
@@ -47,5 +45,3 @@ seropos_euler_plot <-
 #                    "cat_igm_positive", "cat_igm_NA"
 #                    ))
 
-
-eulerr_options()

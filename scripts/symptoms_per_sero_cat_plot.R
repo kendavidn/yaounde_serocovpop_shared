@@ -45,14 +45,15 @@ symptoms_per_sero_cat <-
   left_join(count_pos) %>% 
   mutate(pct = 100*n/sum) %>% 
   filter(!is.na(cat_pos)) %>% 
-  filter(mcat_symp != "No symptoms") 
+  filter(mcat_symp != "No symptoms") %>% 
+  filter(mcat_symp != "Other")
 
 
 symptoms_chi <- map(.x = unique(symptoms_per_sero_cat$mcat_symp), 
                     .f = ~ sero_symptom_chi_square(df = symptoms_per_sero_cat, symp_name = .x) ) %>% 
   flatten_chr() %>% 
   as_tibble() %>% 
-  separate(col = value, into = c("mcat_symp", "p_val"), sep = "--", remove = TRUE) %>% 
+  tidyr::separate(col = value, into = c("mcat_symp", "p_val"), sep = "--", remove = TRUE) %>% 
   mutate(p_val = as.numeric(p_val))
 
 
@@ -107,15 +108,15 @@ symptoms_per_sero_cat_plot <-
       #           aes(y = mcat_symp), x = -0.7,  color = "black", fontface = "plain",
       #           label = "**",  position = position_nudge(y = -0.05)) +
       scale_x_continuous(expand = expansion(add = c(1.2, 8))) +
-      scale_fill_manual(values = c(seroneg_color, seropos_color)) +
+      scale_fill_manual(values = c(seroneg_color, seropos_color), labels= c("IgG negative", "IgG positive") ) +
       scale_color_manual(values = c("black", "white")) +
-      labs(x = "Percentage with symptom", y = "", fill = "", 
+      labs(x = "Prevalence\n(% and no. with symptom)", y = "", fill = "", 
            caption = paste("of", pos_cnt_for_caption, "seropositive and", 
                            neg_cnt_for_caption, "seronegative individuals"
            )
       ) + 
       theme(axis.text.y = element_text(face = "plain", color = "black", hjust = 1, vjust = 0.3),
-            axis.title.x = element_text( face = "bold", size = 9), 
+            axis.title.x = element_text( face = "bold", size = 8.5), 
             plot.title.position = "plot",
             plot.subtitle = element_text(hjust = 0, size = 12, face = "bold"), 
             legend.position = c(0.75, 0.5), 

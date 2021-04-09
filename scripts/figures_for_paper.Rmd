@@ -1,0 +1,874 @@
+---
+title: "Numbers and figures requested for Prelim report"
+date: "`r Sys.Date()`"
+
+## Options for outputting HTML
+
+# output:
+#   rmarkdown::html_document:
+#     theme: cerulean
+#     toc: true
+#     toc_depth: 2
+#     toc_float: true
+# 
+
+
+# # Options for outputting PDF
+# output:
+#   bookdown::pdf_document2:
+#     fig_caption: yes
+#     toc: true
+#     number_sections: true
+#     latex_engine: xelatex
+#     includes:
+#       in_header: preamble.tex
+# mainfont: Avenir
+# fontsize: 10pt
+# geometry: left=2cm,right=2cm,top=2.5cm,bottom=2cm
+
+
+# Options for outputting Word
+output: word_document
+fontsize: 10pt
+
+
+## Other options
+# editor_options: 
+#   chunk_output_type: console
+# params: 
+#   mode: "word"
+---
+\newpage
+
+```{r readData, echo = FALSE, warning = F, message = F}
+
+#addTaskCallback(function(...) {set.seed(123);TRUE})
+
+library(here)
+source(here("scripts/load.R"))
+
+#knitr::opts_chunk$set(dev="cairo_pdf")
+
+
+```
+
+```{r utilityFunctions}
+source(here("scripts/utils.R"))
+```
+
+
+
+# Table 1 Sociodemographic characteristics of the final sample
+
+```{r}
+source(here("scripts/sample_characteristics_2.R"))
+sample_characteristics_2_table
+```
+
+
+# Figure 1: Crude seroprevalence
+
+```{r fig.width = 7.17, fig.height = 8.22}
+source(here("scripts/seropos_euler.R"))
+source(here("scripts/pos_age_sex_pyramid.R"))
+
+top_plots <- 
+  cowplot::plot_grid(plot_grid(seropos_euler_plot, scale = 0.9), 
+                   pos_age_sex_pyramid_plot, 
+                   nrow = 1, 
+                   rel_widths = c(3,7.6), labels = c("A", "B"))
+
+source(here("scripts/map2.R"))
+
+cowplot::plot_grid(top_plots, 
+                   plot_grid(map2_plot, labels = "C"), 
+                   ncol = 1, 
+                   rel_heights = c(3,6)
+                   )
+
+```
+
+
+# Table 2 Population-weighted and test-adjusted seroprevalence estimates 
+
+```{r}
+source(here("scripts/sero_estim.R"))
+
+igg_pos_table_print
+```
+
+
+# Fig. 2 Risk factor analysis for SARS-CoV-2 IgG seropositivity
+
+```{r fig.width = 7.6, fig.height = 6.6}
+source(here("scripts/infection_regn_2.R"))
+
+infection_regn_plot
+```
+
+# Fig. 3 Symptomaticity among IgG seropositive and seronegative respondents
+
+```{r fig.width = 8.57, fig.height = 8.44}
+neg_color <- alpha("dodgerblue2", 0.7) 
+pos_color <- alpha("firebrick3", 0.7)
+text_color <- "firebrick4"
+
+symptoms_among_igg_positive <- 
+  yao %>%
+  filter(cat_igg_result == "Positive") %>%
+  #filter(mcat_symp != "No symptoms") %>% 
+  plot_upset2(mcat_symp,
+             sep = "--",
+             intersect_max_bars = 10,
+             subtitle = "",
+             fill = pos_color, 
+             denom =  yao %>% filter(cat_igg_result == "Positive"),
+             set_size_lab = "Prevalence \n(% and No. with this symptom)",
+             intersect_size_lab = "Co-prevalence, \n(% and no. with this combination of symptoms)"
+             ) %>% 
+  plot_grid() +
+  labs(caption = "of 302 IgG seropositive individuals.\n Only the 10 most common symptom combinations are shown") + 
+  theme(plot.caption = element_text(size = 6.5, color = "gray10", hjust = 1, family = "Avenir Next"))
+
+
+
+source(here("scripts/seropos_symptoms_euler.R"))
+source(here("scripts/seropos_symptoms_matrix.R"))
+source(here("scripts/symptoms_per_sero_cat_plot.R"))
+
+
+plot_grid(
+  plot_grid(plot_grid(seropos_symptoms_matrix_plot, scale = 0.77), 
+            plot_grid(symptoms_among_igg_positive, scale = 0.98), rel_heights = c(0.4, 0.6), 
+            ncol = 1, labels = "AUTO"),
+  plot_grid(symptoms_per_sero_cat_plot, scale = 0.98), 
+  ncol = 2, rel_widths = c(4.5,5.5),
+  labels = c("","C"))
+
+```
+
+
+# Supplementary Figure 1
+
+Study flowchart
+
+```{r}
+
+knitr::include_graphics(path = here("plots/study_flowchart.pdf"))
+
+```
+
+
+
+# Supplementary Figure 2
+
+Sampling and seropositivity over time
+
+```{r fig.width=5.5, fig.height=6.88}
+source(here("scripts/trend_over_time.R"))
+
+trend_over_time_plot
+
+```
+
+
+## Supplementary Table 1
+
+Neighbourhood seroprevalence tables
+
+```{r}
+
+yao %>% 
+  group_by(loc_hhld_area) %>% 
+  count(cat_igg_result) %>% 
+  mutate(pct = round(100*n/sum(n), 2)) %>% 
+  ungroup() %>% 
+  pivot_wider(id_cols = loc_hhld_area, names_from = cat_igg_result, values_from = c(n, pct)) %>% 
+  mutate(Total = n_Negative + n_Positive) %>% 
+  mutate(CI = DescTools::BinomCI(n = Total, x = n_Positive)) %>% 
+  rowwise() %>% 
+  mutate(CI_lower = round(100 * CI[[2]], 1)) %>% 
+  mutate(CI_upper = round(100 * CI[[3]], 1)) %>% 
+  mutate(CI = paste0(CI_lower, " - ", CI_upper)) %>% 
+  arrange(pct_Positive) %>% 
+  select(Neighbourhood = loc_hhld_area, Total, 
+         `Number IgG positive` = n_Positive, 
+         `Crude IgG seroprevalence` = pct_Positive, 
+         `95% confidence interval` = CI
+         ) %>% 
+  huxtable()
+
+
+yao %>% 
+  group_by(loc_hhld_area) %>% 
+  count(cat_igm_result) %>% 
+  mutate(pct = round(100*n/sum(n), 2)) %>% 
+  ungroup() %>% 
+  pivot_wider(id_cols = loc_hhld_area, names_from = cat_igm_result, values_from = c(n, pct)) %>% 
+  mutate(Total = n_Negative + n_Positive) %>% 
+  mutate(CI = DescTools::BinomCI(n = Total, x = n_Positive)) %>% 
+  rowwise() %>% 
+  mutate(CI_lower = round(100 * CI[[2]], 1)) %>% 
+  mutate(CI_upper = round(100 * CI[[3]], 1)) %>% 
+  mutate(CI = paste0(CI_lower, " - ", CI_upper)) %>% 
+  arrange(pct_Positive) %>% 
+  select(Neighbourhood = loc_hhld_area, Total, 
+         `Number IgM positive` = n_Positive, 
+         `Crude IgM seroprevalence` = pct_Positive, 
+         `95% confidence interval` = CI
+         ) %>% 
+  huxtable()
+
+
+
+yao %>% 
+  mutate(cat_igg_or_igm_result = ifelse(cat_igm_result == "Positive" | cat_igg_result == "Positive", 
+                                        "Positive", 
+                                        "Negative"
+                                        )) %>% 
+  group_by(loc_hhld_area) %>% 
+  count(cat_igg_or_igm_result) %>% 
+  mutate(pct = round(100*n/sum(n), 2)) %>% 
+  ungroup() %>% 
+  pivot_wider(id_cols = loc_hhld_area, names_from = cat_igg_or_igm_result, values_from = c(n, pct)) %>% 
+  mutate(Total = n_Negative + n_Positive) %>% 
+  mutate(CI = DescTools::BinomCI(n = Total, x = n_Positive)) %>% 
+  rowwise() %>% 
+  mutate(CI_lower = round(100 * CI[[2]], 1)) %>% 
+  mutate(CI_upper = round(100 * CI[[3]], 1)) %>% 
+  mutate(CI = paste0(CI_lower, " - ", CI_upper)) %>% 
+  arrange(pct_Positive) %>% 
+  select(Neighbourhood = loc_hhld_area, Total, 
+         `Number IgG and/or IgM positive` = n_Positive, 
+         `Crude combined seroprevalence` = pct_Positive, 
+         `95% confidence interval` = CI
+         ) %>% 
+  huxtable()
+
+
+
+```
+
+
+# Supplementary Figure 3
+
+Range of seropositive percentages per household
+
+```{r fig.width = 7, fig.height=7.91}
+
+igg_seropos_pct_distrib_hhld <- 
+  yao %>% 
+  mutate(cat_igg_num = case_when(cat_igg_result == "Positive" ~ 1, 
+                                               TRUE ~ 0
+                                               )) %>% 
+  group_by(id_hhld) %>% 
+  summarise(n = sum(counter), 
+            n_positive = sum(cat_igg_num)
+            ) %>% 
+  mutate(pct_positive = round(100 * n_positive/n)) %>% 
+  arrange(-pct_positive) %>% 
+  pull(pct_positive)
+
+igm_seropos_pct_distrib_hhld <- 
+  yao %>% 
+  mutate(cat_igm_num = case_when(cat_igm_result == "Positive" ~ 1, 
+                                               TRUE ~ 0
+                                               )) %>% 
+  group_by(id_hhld) %>% 
+  summarise(n = sum(counter), 
+            n_positive = sum(cat_igm_num)
+            ) %>% 
+  mutate(pct_positive = round(100 * n_positive/n)) %>% 
+  arrange(-pct_positive) %>% 
+  pull(pct_positive)
+
+
+igg_or_igm_seropos_pct_distrib_hhld <- 
+  yao %>% 
+  mutate(cat_igg_or_igm_result = ifelse(cat_igm_result == "Positive" | cat_igg_result == "Positive", 
+                                        "Positive", 
+                                        "Negative"
+                                        )) %>% 
+  mutate(cat_igg_or_igm_result_num = case_when(cat_igg_or_igm_result == "Positive" ~ 1, 
+                                               TRUE ~ 0
+                                               )) %>% 
+  group_by(id_hhld) %>% 
+  summarise(n = sum(counter), 
+            n_positive = sum(cat_igg_or_igm_result_num)
+            ) %>% 
+  mutate(pct_positive = round(100 * n_positive/n)) %>% 
+  arrange(-pct_positive) %>% 
+  pull(pct_positive)
+
+igg_seropos_distrib_plot <- 
+  data.frame(igg_seropos_pct_distrib_hhld, 
+           counter = 1) %>% 
+  mutate(igg_seropos_pct_distrib_hhld = cut(igg_seropos_pct_distrib_hhld, 
+                                        breaks = seq(from = 0, to = 100, by = 10), include.lowest = T)) %>%
+  bind_rows(data.frame(igg_seropos_pct_distrib_hhld = cut(1:100, breaks = seq(from = 0, to = 100, by = 10), include.lowest = T),
+                       counter = 0)) %>% 
+  group_by(igg_seropos_pct_distrib_hhld) %>% 
+  summarise(n = sum(counter)) %>% 
+  ggplot()+ 
+  geom_col(aes(x = igg_seropos_pct_distrib_hhld, y = n), 
+           fill = alpha(pos_igg_only_color, 0.7), 
+           color = alpha(pos_igg_only_color, 0.9),
+           width = 1) + 
+  geom_text(aes(x = igg_seropos_pct_distrib_hhld, y = n, label = n),
+           color = "black", size = 4, vjust = -0.2) + 
+  labs(x = "Household prevalence of IgG antibodies", 
+       y = "Count") + 
+  scale_y_continuous(limits = c(0, 160))
+
+
+
+igm_seropos_distrib_plot <- 
+  data.frame(igm_seropos_pct_distrib_hhld, 
+           counter = 1) %>% 
+  mutate(igm_seropos_pct_distrib_hhld = cut(igm_seropos_pct_distrib_hhld, 
+                                        breaks = seq(from = 0, to = 100, by = 10), include.lowest = T)) %>%
+  bind_rows(data.frame(igm_seropos_pct_distrib_hhld = cut(1:100, breaks = seq(from = 0, to = 100, by = 10), include.lowest = T),
+                       counter = 0)) %>% 
+  group_by(igm_seropos_pct_distrib_hhld) %>% 
+  summarise(n = sum(counter)) %>% 
+  ggplot()+ 
+  geom_col(aes(x = igm_seropos_pct_distrib_hhld, y = n), 
+           fill = alpha(pos_igm_only_color, 0.7), 
+           color = alpha(pos_igm_only_color, 0.9),
+           width = 1) + 
+  geom_text(aes(x = igm_seropos_pct_distrib_hhld, y = n, label = n),
+           color = "black", size = 4, vjust = -0.2) + 
+  labs(x = "Household prevalence of IgM antibodies", 
+       y = "Count") + 
+  scale_y_continuous(limits = c(0, 160))
+
+
+igm_or_igm_seropos_distrib_plot <- 
+  data.frame(igg_or_igm_seropos_pct_distrib_hhld, 
+           counter = 1) %>% 
+  mutate(igg_or_igm_seropos_pct_distrib_hhld = cut(igg_or_igm_seropos_pct_distrib_hhld, 
+                                        breaks = seq(from = 0, to = 100, by = 10), include.lowest = T)) %>%
+  bind_rows(data.frame(igg_or_igm_seropos_pct_distrib_hhld = cut(1:100, breaks = seq(from = 0, to = 100, by = 10), include.lowest = T),
+                       counter = 0)) %>% 
+  group_by(igg_or_igm_seropos_pct_distrib_hhld) %>% 
+  summarise(n = sum(counter)) %>% 
+  ggplot()+ 
+  geom_col(aes(x = igg_or_igm_seropos_pct_distrib_hhld, y = n), 
+           fill = alpha(pos_igg_and_igm_color, 0.8), 
+           color = alpha(pos_igg_and_igm_color, 0.9),
+           width = 1
+           ) + 
+  geom_text(aes(x = igg_or_igm_seropos_pct_distrib_hhld, y = n, label = n),
+           color = "black", size = 4, vjust = -0.2) + 
+  labs(x = "Household prevalence of IgM and/or IgM antibodies", 
+       y = "Count") + 
+  scale_y_continuous(limits = c(0, 160))
+
+
+
+
+cowplot::plot_grid(plot_grid(igg_seropos_distrib_plot, scale = 0.93), 
+                   plot_grid(igm_seropos_distrib_plot, scale = 0.93), 
+                   plot_grid(igm_or_igm_seropos_distrib_plot, scale = 0.93), 
+                   ncol = 1,
+                   labels = "AUTO")
+
+
+print("Median and IQR IgG seropositivity percentages per household:")
+print("Median:")
+median(igg_seropos_pct_distrib_hhld)
+print("IQR:")
+IQR(igg_seropos_pct_distrib_hhld)
+
+
+print("Median and IQR IgM seropositivity percentages per household:")
+print("Median:")
+median(igm_seropos_pct_distrib_hhld)
+print("IQR:")
+IQR(igm_seropos_pct_distrib_hhld)
+
+
+print("Median and IQR IgG or IgM seropositivity percentages per household:")
+print("Median:")
+median(igg_or_igm_seropos_pct_distrib_hhld)
+print("IQR:")
+IQR(igg_or_igm_seropos_pct_distrib_hhld)
+
+```
+
+
+
+
+
+# Supplementary Figure 4
+
+Healthcare attention among those who were IgG seropositive vs IgG seronegative
+
+```{r fig.width=7, fig.height=9}
+
+pos_igg_only_color <- alpha("firebrick3", 0.6)
+neg_color <- alpha("dodgerblue2", 0.7) 
+
+
+# Where did you consult for your acute symptoms? (Among those who were Igg seropositive)
+yao_is_igg_pos <-  
+  yao %>% 
+  filter(cat_igg_result == "Positive")
+
+igg_pos_consult_plot <- 
+  yao_is_igg_pos %>% 
+  #filter(mcat_consult_any != "No response") %>% 
+  mutate(mcat_consult = replace_na(mcat_consult, "None")) %>%
+  mutate(mcat_consult = recode(mcat_consult, "No response" = "None")) %>% 
+  plot_upset(cat_col = mcat_consult,
+             denom = yao_is_igg_pos,
+             sep = "--",
+             fill = pos_igg_only_color, 
+             set_size_lab = "Set size, \n % who consulted here", 
+             intersect_size_lab = "Intersection size, \n % who consulted with this combination",
+             intersect_cutoff = 0, 
+             intersect_size_scale_x_expand_upper = 0, 
+             set_size_lim_lower = 100,
+             intersect_size_lim_upper = 98 ) + 
+  labs(caption = "Among 302 IgG seropositive individuals") + 
+  theme(plot.caption = element_text(face = "plain"))
+
+yao_is_igg_neg <-  
+  yao %>% 
+  filter(cat_igg_result == "Negative")
+
+igg_neg_consult_plot <- 
+  yao_is_igg_neg %>% 
+  #filter(mcat_consult_any != "No response") %>% 
+  mutate(mcat_consult = replace_na(mcat_consult, "None")) %>% 
+  mutate(mcat_consult = recode(mcat_consult, "No response" = "None")) %>% 
+  plot_upset(cat_col = mcat_consult,
+             denom = yao_is_igg_neg,
+             sep = "--",
+             fill = neg_color,
+             set_size_lab = "Set size, \n % who consulted here", 
+             intersect_size_lab = "Intersection size, \n % who consulted with this combination",
+             intersect_cutoff = 0, 
+             intersect_size_lim_upper = 98,
+             set_size_lim_lower = 100,
+             intersect_size_scale_x_expand_upper = 0) + 
+  labs(caption = "Among 669 IgG seronegative individuals") + 
+  theme(plot.caption = element_text(face = "plain"))
+
+
+igg_consult_plot <- 
+  plot_grid(igg_pos_consult_plot, 
+            igg_neg_consult_plot, ncol = 1, scale = 0.95, 
+          labels = "AUTO")
+
+igg_consult_plot
+
+```
+
+
+
+# Supplementary Figure 5
+
+Drugs taken by those who were IgG seropositive vs IgG seronegative
+
+```{r fig.width=7, fig.height=9}
+
+pos_igg_only_color <- alpha("firebrick3", 0.6)
+neg_color <- alpha("dodgerblue2", 0.7) 
+
+
+# What medication did you take for your acute symptoms? (Among those who were Igg seropositive)
+
+yao_is_igg_pos <-  
+  yao %>% 
+  filter(cat_igg_result == "Positive")
+
+igg_pos_drugs_plot <- 
+  yao_is_igg_pos %>% 
+  #filter(mcat_consult_any != "No response") %>% 
+  mutate(mcat_drug = replace_na(mcat_drug, "None")) %>% 
+  mutate(mcat_drug = recode(mcat_drug, "No response" = "None")) %>% 
+  mutate(mcat_drug = recode(mcat_drug, "No medication" = "None")) %>% 
+  plot_upset(cat_col = mcat_drug,
+             denom = yao_is_igg_pos,
+             sep = "--",
+             fill = pos_igg_only_color,
+             set_size_lab = "Set size, \n % who took this medication", 
+             intersect_size_lab = "Intersection size, \n % who took this combination of medications",
+             intersect_cutoff = 0, 
+             intersect_size_lim_upper = 80, 
+             set_size_lim_lower = 100,
+             intersect_max_bars = 14,
+             intersect_size_scale_x_expand_upper = 0
+             ) + 
+  labs(caption = "Among 302 IgG seropositive individuals\nOnly the 14 most common combinations are shown.") + 
+  theme(plot.caption = element_text(face = "plain"))
+
+yao_is_igg_neg <-  
+  yao %>% 
+  filter(cat_igg_result == "Negative")
+
+igg_neg_drugs_plot <- 
+  yao_is_igg_neg %>% 
+  #filter(mcat_consult_any != "No response") %>% 
+  mutate(mcat_drug = replace_na(mcat_drug, "None")) %>% 
+  mutate(mcat_drug = recode(mcat_drug, "No response" = "None")) %>% 
+  mutate(mcat_drug = recode(mcat_drug, "No medication" = "None")) %>% 
+  plot_upset(cat_col = mcat_drug,
+             denom = yao_is_igg_neg,
+             sep = "--",
+             fill = neg_color,
+             set_size_lab = "Set size, \n % who took this medication", 
+             intersect_size_lab = "Intersection size, \n % who took this combination of medications",
+             intersect_cutoff = 0, 
+             intersect_size_lim_upper = 80, 
+             set_size_lim_lower = 100,
+             intersect_max_bars = 14,
+             intersect_size_scale_x_expand_upper = 0
+             ) + 
+  labs(caption = "Among 669 IgG seronegative individuals\nOnly the 14 most common combinations are shown.") + 
+  theme(plot.caption = element_text(face = "plain"))
+
+igg_drugs_plot <- 
+  plot_grid(igg_pos_drugs_plot, 
+            igg_neg_drugs_plot, ncol = 1, scale = 0.95, 
+          labels = "AUTO")
+
+igg_drugs_plot
+
+
+```
+
+
+<!-- Among IgG positive people who took drugs, who prescribed or recommended these drugs -->
+<!-- ```{r fig.width=5.5, fig.height=6.88} -->
+
+<!-- yao %>% -->
+<!--   filter(!is.na(mcat_drugsource)) %>% -->
+<!--   filter(cat_igg_result == "Positive") %>% -->
+<!--   plot_upset(mcat_drugsource,  -->
+<!--              denom = yao %>% filter(cat_igg_result == "Positive")) -->
+
+
+<!-- ``` -->
+
+
+# Other Key numbers for paper
+
+
+## Number of IgG positives who did not consult any care
+
+```{r}
+
+consult_and_non_consult <- 
+  yao %>% 
+  filter(cat_igg_result == "Positive") %>% 
+  mutate(mcat_consult = replace_na(mcat_consult, "None")) %>% 
+  mutate(consulted_care = ifelse(mcat_consult == "None", "No consultation", "Consulted care")) %>% 
+  tabyl(consulted_care)
+
+
+consult_and_non_consult
+
+BinomCI(x = consult_and_non_consult$n[2], 
+        n = sum(consult_and_non_consult$n)) %>% 
+  as.data.frame() %>% 
+  huxtable(add_colnames = TRUE)
+
+```
+
+## Among those who were IgG seropositive, what percentage reported any symptoms?
+
+```{r}
+with_and_without_symp <- 
+  yao %>% 
+  filter(cat_igg_result == "Positive") %>% 
+  tabyl(has_acute_symp)
+
+
+with_and_without_symp
+BinomCI(x = with_and_without_symp$n[1], 
+        n = sum(with_and_without_symp$n)) %>% 
+    as.data.frame() %>% 
+  huxtable(add_colnames = TRUE)
+
+```
+
+
+## What percentage (of household representatives) reported reduced income?
+
+```{r}
+
+rev_dropped_tabyl <- 
+  yao_hhld_heads %>% 
+  tabyl(has_rev_dropped)
+
+rev_dropped_tabyl
+
+BinomCI(x = rev_dropped_tabyl$n[3],
+        n = sum(rev_dropped_tabyl$n)
+  
+)
+
+
+```
+
+
+## Number of seropositive participants per household
+
+```{r}
+
+seropos_per_hhld <- 
+  yao %>% 
+  mutate(cat_igg_or_igm_result = ifelse(cat_igm_result == "Positive" | cat_igg_result == "Positive", 
+                                        "Positive", 
+                                        "Negative"
+                                        )) %>% 
+  mutate(cat_igg_or_igm_result_num = case_when(cat_igg_or_igm_result == "Positive" ~ 1, 
+                                               TRUE ~ 0
+                                               )) %>% 
+  group_by(id_hhld) %>% 
+  summarise(n = sum(counter), 
+            n_positive = sum(cat_igg_or_igm_result_num)) %>% 
+  mutate(pct_positive = round(100 * n_positive/n)) %>% 
+  count(n_positive) %>% 
+  mutate(pct = percent(n/ sum(n), accuracy = 0.1))
+
+print("Percentage of households with at least one seropositive participant:")
+numerator <- seropos_per_hhld %>% filter(n_positive > 0) %>% pull(n) %>% sum()
+denominator <- seropos_per_hhld %>% pull(n) %>% sum()
+
+percent(numerator/denominator)
+print(paste("(", numerator, "out of", denominator, ")"))
+  
+```
+
+
+## Mean household members per neighbourhood
+
+```{r}
+yao %>% 
+  group_by(loc_hhld_area) %>% 
+  summarise(mean_residents = mean(n_hhld_indiv), 
+            sd_residents = sd(n_hhld_indiv)) %>% 
+  arrange(2) %>% 
+  huxtable()
+
+```
+
+
+
+## Other numbers requested
+
+```{r}
+# begin date for survey
+min_dt_quest <- 
+  yao$dt_quest %>% 
+  min(na.rm = T) %>% 
+  format.Date(format = "%d %B")
+
+# end date for survey
+max_dt_quest <- 
+  yao$dt_quest %>% 
+  max(na.rm = T) %>% 
+  format.Date(format = "%d %B, %Y")
+  
+# n of households
+n_hhlds_included <- 
+  yao$id_hhld %>% 
+    unique() %>% 
+    length()
+
+# n of individuals    
+n_ind_included <- 
+  yao$id_ind %>% 
+    unique() %>% 
+    length()
+
+# mean adults per hhld
+mean_n_adults_per_hhld <- 
+  yao_hhld$n_hhld_adults %>% 
+  mean() %>% 
+  round(1)
+  
+# mean children per hhld
+mean_n_children_per_hhld <- 
+  yao_hhld$n_hhld_children %>% 
+  mean() %>% 
+  round(1)
+
+# number of households without a head
+n_hhlds_w_o_head <- 
+  yao %>% 
+  group_by(id_hhld) %>% 
+  transmute(is_head = ifelse(is_head == "Yes", 1, 0)) %>% 
+  mutate(head_sum = sum(is_head)) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  filter(head_sum == 0) %>% 
+  nrow()
+
+# percentage of households without a head
+pct_hhlds_w_o_head <- 
+  (100 * n_hhlds_w_o_head/n_hhlds_included) %>% 
+  round(1)
+
+  
+# number of households where we could access breadwinner
+n_hhlds_w_breadwin <- 
+  yao %>% 
+  group_by(id_hhld) %>% 
+  transmute(is_breadwin = ifelse(is_breadwin == "Yes", 1, 0)) %>% 
+  mutate(is_breadwin = sum(is_breadwin)) %>% 
+  slice(1) %>% 
+  ungroup() %>% 
+  filter(is_breadwin > 0) %>% 
+  nrow()
+
+# percentage of households where we could access breadwinner
+pct_hhlds_w_breadwin <- 
+  (100 * n_hhlds_w_breadwin/n_hhlds_included) %>% 
+  round(1)
+
+# percentage of hhlds in which the father is breadwinner
+pct_hhlds_w_father_breadwin <- 
+  (((yao_hhld %>% 
+  filter(is_breadwin_father == 1) %>% 
+  nrow())/n_hhlds_included)* 100) %>% 
+  round(1)
+  
+# percentage of hhlds in which the mother is breadwinner
+pct_hhlds_w_mother_breadwin <- 
+  (((yao_hhld %>% 
+  filter(is_breadwin_mother == 1) %>% 
+  nrow())/n_hhlds_included)* 100) %>% 
+  round(1)
+
+# top 4 occupations
+top_four_occupations <- 
+  yao %>% 
+  select(mcat_occup) %>% 
+  separate_rows(sep = "--") %>% 
+  count(mcat_occup) %>% 
+  arrange(-n) %>% 
+  head(4) %>% 
+  pull(mcat_occup) %>% 
+  paste(., collapse = ", ")
+ 
+
+# pct with death during pandemic
+pct_with_death <- 
+  (yao_hhld %>% 
+  filter(has_hhld_death == "Yes") %>% 
+  nrow()*100/n_hhlds_included) %>% 
+  round(1)
+  
+# mean age of death during pandemic
+mean_age_death <- 
+  yao_hhld %>%  
+  filter(!is.na(val_dead1_age)) %>% 
+  .$val_dead1_age %>% 
+  mean()
+
+# number with positive test
+n_hhlds_with_pos_test <- 
+  yao_hhld %>%
+  filter(has_mem_tested_positive == "Yes") %>% 
+  nrow()
+
+# Number with any COVID-like symptoms
+n_inds_with_symptoms <- 
+  yao %>% 
+  filter(mcat_symp != "No symptoms") %>% 
+  nrow()
+
+# Percentage with any COVID-like symptoms
+pct_inds_with_symptoms <- 
+  ((100 * n_inds_with_symptoms)/nrow(yao)) %>% 
+  round(1)
+  
+# percentage complete or partial compliance with preventive measures
+pct_respecting_distancing <- 
+  ((yao %>% 
+  filter(is_respecting_distancing == "Definitely Yes" | is_respecting_distancing == "Partly"  ) %>% 
+  nrow() * 100)/nrow(yao)) %>% 
+  round(1)
+
+# Number seropositive
+n_seropositive <- 
+  yao %>% 
+  filter(cat_igg_result == "Positive" | cat_igm_result == "Positive" ) %>% 
+  nrow()
+
+# Number seropositive
+n_seronegative <- 
+  yao %>% 
+  filter(cat_igg_result == "Negative" & cat_igm_result == "Negative" ) %>% 
+  nrow()
+
+n_igg_seropos_symptoms_mild_or_moderate <- 
+  yao %>% 
+  filter(cat_igg_result == "Positive") %>% 
+  filter(cat_symp_severity == "Mild" | cat_symp_severity == "Moderate") %>% 
+  nrow()
+
+n_igg_seropos_w_symptoms <- 
+  yao %>% 
+  filter(cat_igg_result == "Positive") %>% 
+  filter(cat_symp_severity == "Mild" | cat_symp_severity == "Moderate" 
+          | cat_symp_severity == "Severe") %>% 
+  nrow()
+  
+  
+```
+
+-   Date of first survey: `r min_dt_quest`
+
+-   Date of last survey: `r max_dt_quest`
+
+-   Number of households surveyed: `r n_hhlds_included`
+
+-   Number of individuals surveyed: `r n_ind_included`
+
+-   Mean number of adults per household: `r mean_n_adults_per_hhld`
+
+-   Mean number of children per household: `r mean_n_children_per_hhld`
+
+-   Number of household where the head was not interviewed: `r n_hhlds_w_o_head`
+
+-   Percentage of household where the head was not interviewed: `r pct_hhlds_w_o_head`%
+
+-   Number of households where the breadwinner was interviewed: `r n_hhlds_w_breadwin`
+
+-   Percentage of households where the breadwinner was interviewed: `r pct_hhlds_w_breadwin`%
+
+-   Percentage of households in which the father is the breadwinner: `r pct_hhlds_w_father_breadwin`%
+
+-   Percentage of households in which the mother is the breadwinner: `r pct_hhlds_w_mother_breadwin`%
+
+-   Top four occupations: `r top_four_occupations`
+
+-   Percentage of households where there has been a death since March 1st: `r pct_with_death`
+
+-   Mean age of those who diead since March 1st: `r mean_age_death`
+
+-   Number of households where a prior positive test was reported: `r n_hhlds_with_pos_test`
+
+-   Number of individuals who have reported any COVID-like symptoms: `r n_inds_with_symptoms`
+
+-   Percentage of individuals who have reported any COVID-like symptoms: `r pct_inds_with_symptoms`
+
+-   Percentage of individuals who are completely or partially complying with social distancing: `r pct_respecting_distancing`%
+
+-   Number seropositive (either IgG or IgM): `r n_seropositive`
+
+-   Number seronegative (both IgG and IgM): `r n_seronegative`
+
+-   Number of IgG seropositive with symptoms: `r n_igg_seropos_w_symptoms`
+
+-   Number of IgG seropositive with symptoms described as mild or moderate: `r n_igg_seropos_symptoms_mild_or_moderate`
+
+
+
+
+

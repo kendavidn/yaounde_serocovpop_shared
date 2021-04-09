@@ -56,6 +56,10 @@ p_load(
   "packcircles",
   "DescTools",
   "eulerr",
+  "cAIC4",
+  "lmerTest",
+  "car",
+  "glmglrt",
   "patch",  # remotes::install_github("r-rudra/patch")
   "tidyverse",
   "sf",
@@ -183,8 +187,8 @@ category_dictionary_tib <-
   mutate(length = str_length(raw_category)) %>% 
   arrange(-length)
 
-raw_category <-  category_dictionary_tib$raw_category 
-clean_category <-  category_dictionary_tib$clean_category 
+raw_category <- category_dictionary_tib$raw_category 
+clean_category <- category_dictionary_tib$clean_category 
 
 category_dictionary <- setNames(object = clean_category, nm = raw_category)
 
@@ -196,6 +200,10 @@ yao <-
   ## rename to new names
   rename_with(.cols = any_of(raw_name), .fn = ~ clean_name[which(raw_name == .x)]) %>%
   # select(where( ~ !(all(is.na(.x)) | all(.x=="")) )) %>%
+  # filter out records not validated. There are 4 people from one household that were accidentally interviewed. We drop them.
+  filter(cat_validation_status == "validation_status_approved") %>% 
+  # For paper, drop everyone who did not get tested for antibodies
+  filter(!is.na(cat_igg_result) & cat_igg_result != "") %>% 
   ## remove rows with double slash in id
   mutate(id_quest = str_replace(id_quest, "//", "/")) %>%
   ## remove accents
@@ -308,8 +316,6 @@ mutate(across(.cols = function(.x) is.character(.x) | is.factor(.x) , .fns = ~ s
   mutate(across(.cols = starts_with("dt_"), .fns = ~ as.Date(.x))) %>% 
   # calculate BMI
   mutate(val_BMI =  val_weight_kg/(((val_height_cm)/100)^2)  ) %>% 
-  # filter out records not validated. There are 4 people from one household that were accidentally interviewed. We drop them.
-  filter(cat_validation_status == "validation_status_approved") %>% 
   # # positivity categories
   # mutate(cat_pos = if_else(cat_igg_result == "Positive" | cat_igm_result == "Positive", 
   #                          "Positive", 
@@ -457,7 +463,11 @@ mutate(across(.cols = function(.x) is.character(.x) | is.factor(.x) , .fns = ~ s
   mutate(is_fearful_stigma = recode(is_fearful_stigma, 
                                     "Yes" = "Worried about stigma", 
                                     "No" = "Not worried about stigma",
-                                    "No response" = "Not worried about stigma"))
+                                    "No response" = "Not worried about stigma")) %>% 
+# COVID-compatible symptoms
+  mutate(has_COVID_compatible_symp = ifelse(mcat_symp == "No symptoms", "No", "Yes")) %>% 
+  mutate(has_COVID_compatible_symp = ifelse(mcat_symp == "Other", "No", has_COVID_compatible_symp))
+
   
 
 

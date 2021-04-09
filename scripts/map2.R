@@ -132,7 +132,6 @@ map2_plot <-
                               "IgG & IgM positive",
                               "Negative"), 
                    name = "Seropositivity", 
-                   , 
                    guide = guide_legend(order = 1)) +
   #scale_color_manual(values = c(alpha("firebrick3", 0.8), alpha("dodgerblue2", 0.8)) ) + 
   geom_scatterpie_legend(hhlds_pie$radius, 

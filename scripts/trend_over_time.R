@@ -76,7 +76,7 @@ tests_over_time_plot <-
   group_by(dt_quest, loc_hhld_area) %>% 
   summarise(tested = sum(counter)) %>% 
   ggplot() + 
-  facet_wrap(~loc_hhld_area, ncol = 1) +
+  #facet_wrap(~loc_hhld_area, ncol = 1) +
   geom_col(aes(x = dt_quest, y = tested, fill = loc_hhld_area))+ 
   labs(x = "Date",  y = "Daily number of samples") + 
   scale_x_continuous(breaks = c(week_labels$first_day_monday_std), 

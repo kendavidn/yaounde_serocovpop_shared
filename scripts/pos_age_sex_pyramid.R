@@ -62,13 +62,13 @@ pos_age_sex_pyramid_plot <-
              aes(y=cat_age, x=total_count, label = paste0(
                                                           #"Pos: ", 
                                                           round(100* (pos_igg_only + pos_igg_and_igm + pos_igm_only)/total_count, 1), "%")),
-             size = 3,  fontface = "plain", color = text_color,
+             size = 2.5,  fontface = "bold", color = text_color,
              hjust = 0, vjust = 0.2, label.size = 0, fill = "transparent") +
   geom_label(data=subset(pos_age_sex,cat_sex=="Female"),
              aes(y=cat_age, x=-total_count, label = paste0(
                                                           #"Pos: ", 
                                                           round(100* (pos_igg_only + pos_igg_and_igm + pos_igm_only)/total_count, 1), "%")),
-             size = 3,  fontface = "plain", color = text_color,  
+             size = 2.5,  fontface = "bold", color = text_color,  
              hjust = 1, vjust = 0.2, label.size = 0, fill = "transparent") +
   # Pos and total count labels (plain font)
   geom_label(data=subset(pos_age_sex,cat_sex=="Male"),

@@ -14,6 +14,7 @@ yao_regn <-
   filter(!is.na(cat_BMI)) %>% 
   # replace NA
   mutate(mcat_chronic = replace_na(mcat_chronic, "None")) %>% 
+  # relevel covariable
   mutate(cat_n_hhld_indiv = relevel(cat_n_hhld_indiv, "3 - 5"))
   
 
@@ -43,7 +44,7 @@ sens <- true_positives/(true_positives + false_negatives)
 spec <- true_negatives/(true_negatives + false_positives)
 
 
-### WE MIGHT COME BACK AND FIX THIS LATER. THE TABLE SHOULD IDEALLY SHOW THE CORRECTED SEROPREV
+### WE MIGHT COME BACK AND FIX THIS LATER. THE TABLE POSSIBLY SHOULD BE BASED ON THE CORRECTED SEROPREV
 
 # baseline risk for converting from odds ratio to relative risk
 # base_risk <- 
@@ -76,6 +77,7 @@ regn_per_group <-
   if(is.null(the_formula)) {
     the_formula <- paste("cat_pos_num ~", col_string, "+ (1 | id_hhld)") 
   }
+    
   # run regn and clean output
   df %>% 
     glmer(formula = the_formula,
@@ -377,7 +379,7 @@ has_hhld_children_count_and_regn <-
 #~  Combine and plot  ----
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-plot_only_p_below_0.1 <- TRUE
+plot_only_p_below_0.1 <- FALSE
 
 
 all_sections_univariate <- 
@@ -416,12 +418,13 @@ all_sections_univariate <-
 
 vars_to_paste <- unique(all_sections_univariate$group)
 vars_to_paste <- vars_to_paste[!vars_to_paste %in% "mcat_occup"]
-signif_vars <- paste(vars_to_paste, "+", collapse = " ")
+vars_to_paste <- paste(vars_to_paste, "+", collapse = " ")
+
 
 all_regn <-
   yao_regn %>%
   # set reference level for regressions
-  glmer(formula = paste("cat_pos_num ~", signif_vars, "(1 | id_hhld)"),
+  glmer(formula = paste("cat_pos_num ~", vars_to_paste, "(1 | id_hhld)"),
         data = .,
         family = binomial(),
         control = glmerControl(optimizer = "bobyqa")) %>%

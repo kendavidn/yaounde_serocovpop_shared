@@ -89,12 +89,12 @@ tabulate_categories <- function(df, col) {
 BMI_count <- 
   yao_NA_replaced %>% 
   mutate(cat_BMI = as.character(cat_BMI)) %>% 
-  mutate(cat_BMI = ifelse(is.na(cat_BMI), "Unknown",cat_BMI )) %>% 
+  mutate(cat_BMI = replace_na(cat_BMI, "Missing")) %>% 
   mutate(cat_BMI = factor(cat_BMI, levels = c("\\< 18.5 (Underweight)", 
                                               "18.5 - 24.9", 
                                               "25 - 30 (Overweight)",
                                               " \\> 30 (Obese)", 
-                                              "Unknown"
+                                              "Missing"
                                               ))) %>% 
   # summarise
   tabulate_categories(cat_BMI)
@@ -117,7 +117,7 @@ age_groups <-
 education_levels <- 
   yao_NA_replaced %>% 
   mutate(cat_educ = as.character(cat_educ)) %>% 
-  mutate(cat_educ = ifelse(is.na(cat_educ), "Other", cat_educ )) %>% 
+  mutate(cat_educ = replace_na(cat_educ, "Missing")) %>% 
   mutate(cat_educ = recode(cat_educ, "No response" = "Other")) %>% 
   mutate(cat_educ = fct_infreq(cat_educ), 
          cat_educ = fct_relevel(cat_educ, "Other", after = Inf)) %>% 
@@ -129,7 +129,7 @@ professions <-
   # separate
   select(cat_igg_result, id_ind, mcat_occup) %>% 
   separate_rows(mcat_occup, sep = "--") %>% 
-  mutate(mcat_occup = replace_na(mcat_occup, "Other")) %>% 
+  mutate(mcat_occup = replace_na(mcat_occup, "Missing")) %>% 
   mutate(mcat_occup = ifelse(str_detect(mcat_occup, "Other"), "Other", mcat_occup)) %>% 
   mutate(mcat_occup = str_replace_all(mcat_occup, "No response", "Other")) %>% 
   mutate(mcat_occup = str_replace_all(mcat_occup, "Farmer", "Other")) %>% 
@@ -145,7 +145,7 @@ chronic_illnesses <-
   # separate
   select(cat_igg_result, id_ind, mcat_chronic) %>% 
   separate_rows(mcat_chronic, sep = "--") %>% 
-  mutate(mcat_chronic = replace_na(mcat_chronic, "Other")) %>% 
+  #mutate(mcat_chronic = replace_na(mcat_chronic, "Other")) %>% 
   mutate(mcat_chronic = recode(mcat_chronic, "Other chronic illness" = "Other")) %>% 
   mutate(mcat_chronic = recode(mcat_chronic, "Cardiovascular illness" = "Other")) %>% 
   mutate(mcat_chronic = recode(mcat_chronic, "Chronic neurologic disease" = "Other")) %>% 
