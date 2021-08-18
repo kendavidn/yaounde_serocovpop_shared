@@ -1,4 +1,4 @@
-knitr::opts_chunk$set(echo = FALSE, warning = F, message = F, dpi = 300, cache = F,
+knitr::opts_chunk$set(echo = FALSE, warning = F, message = F, dpi = 300, cache = T,
                       fig.width = 6, 
                       fig.height = 1.75,
                       fig.align = "center"
@@ -12,78 +12,71 @@ knitr::opts_chunk$set(fig.pos = "!H", out.extra = "")
 
 # params$mode <- "pdf"
 
+if(!require("pacman")) install.packages("pacman")
 library(pacman)
 
-p_load(
-  "readxl",
-  "here",
-  "janitor",
-  "stringi",
-  "usethis",
-  "renv",
-  "plotly",
-  "vegan",
-  "reshape2",
-  "viridis",
-  "styler",
-  "paletteer",
-  "scales",
-  "ggtext",
-  "inspectdf",
-  "purrr",
-  "scales",
-  "lubridate",
-  "ISOweek",
-  "highcharter",
-  "leaflet",
-  "grid",
-  "gridExtra",
-  "gridGraphics",
-  "cowplot",
-  "magrittr",
-  "devtools",
-  "ggforestplot", # devtools::install_github("NightingaleHealth/ggforestplot")
-  "gt", 
-  "huxtable",
-  "lme4",
-  "ggallin", # for log transformation accommodating negative values
-  "scatterpie",
-  "ggspatial",
-  "ggnewscale",
-  "prevalence",
-  "sysfonts",
-  "DescTools",
-  "packcircles",
-  "DescTools",
-  "eulerr",
-  "cAIC4",
-  "lmerTest",
-  "car",
-  "glmglrt",
-  "patch",  # remotes::install_github("r-rudra/patch")
-  "tidyverse",
-  "sf",
-  "patchwork"
-)
+pkgs <- 
+  c(
+    "renv",
+    "readxl",
+    "here",
+    "remotes",
+    "janitor",
+    "stringi",
+    "renv",
+    "xlsx",
+    "reshape2",
+    "viridisLite",
+    "styler",
+    "paletteer",
+    "ggtext",
+    "epiR",
+    "purrr",
+    "scales",
+    "lubridate",
+    "ISOweek",
+    "cowplot",
+    "magrittr",
+    "flextable",
+    "huxtable",
+    "lme4",
+    "ggallin",
+    "scatterpie",
+    "ggnewscale",
+    "DescTools",
+    "packcircles",
+    "eulerr",
+    "cAIC4",
+    "lmerTest",
+    "car",
+    "glmglrt",
+    "survey",
+    "srvyr",
+    "bootComb",
+    "patchwork",
+    "anytime",
+    "sf",
+    "ggspatial",
+    "tidyverse"
+  )
 
-#p_unload("all")
-# 
-# font_add_google("Avenir Next")
-# library("extrafont")
-# extrafont::font_import()
-# extrafont::loadfonts()
+pacman::p_load(char = pkgs)
 
-source(system.file("embedded","usecases.R",package = "patch"))
+# remotes::install_github("NightingaleHealth/ggforestplot@547617e63fa481a5f28ffc56c07d46be4af688b2")
+library(ggforestplot)
+
+## print loaded packages (for Nature communications list of software)
+# data.frame(sessioninfo::package_info()) %>%
+#   subset(attached == TRUE, c(package, loadedversion)) %>%
+#   transmute(output_string = paste0(package, " (", loadedversion, ")")) %>%
+#   pull(1) %>%
+#   paste(collapse = ", ")
 
 
-# usethis::use_github(protocol = "https", auth_token = Sys.getenv("GITHUB_PAT"))
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~  Palettes and themes ----
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# 
-# # palette
-# my_palette <- c("#56bfa3", "#f79f57" ,"#7570B3","#56B4E9",  #greenblue #lightorange #purplepastel  #lightblue
-#                 "#3758a6" , "#CC79A7" , "#91142c", "#eb4034", #darkblue #pinkpurple #wine #orange
-#                 "#a3b0c4", "#870476", "#479444", "#3cd6d6" ) # grey, # royalpurple #darkgreen # cyan
-# 
 my_palette <- paletteer_d("awtools::bpalette") %>% as.character() %>% str_sub(end = 7)
 
 scale_colour_discrete <- function(...) {
@@ -94,7 +87,6 @@ scale_fill_discrete <- function(...) {
   scale_fill_manual(..., values = my_palette)
 }
 
-#addTaskCallback(function(...) {set.seed(11);TRUE})
 
 # theme
 my_theme <- theme_classic() +
@@ -124,7 +116,6 @@ my_theme <- theme_classic() +
 
 theme_set(my_theme)
 
-
 options(scipen=999) # turn off scientific notation
 
 options(tibble.print_max = 35, tibble.print_min = 35)
@@ -143,43 +134,13 @@ my_orange <- "#ff983d"
 my_darkorange <- "#b33605"
 
 
-# 
-# category_names <- 
-#   read_excel(here("data/EPICO19_-_all_versions_26 11 approved.xlsx"), sheet = 3) %>% 
-#   select(raw_name) %>% 
-#   separate(raw_name, into = c("var", "category"), sep = "/") %>% 
-#   select(category) 
-# 
-# write_excel_csv(category_names, file = here("data/category_names.csv"), na = "")
-#   
-# 
-
-
-yao_raw <- 
-  read_excel(here("data/survey_data_dec_11.xlsx"), sheet = 2) %>% 
-  type_convert()
-
-
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~  Read in category dictionary, for recoding multi-answer columns ----
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ## read in clean names and replace
-data_dict <- read_excel(here("data/survey_data_dec_11.xlsx"), sheet = 3)
-
-raw_name <- data_dict$raw_name
-clean_name <- data_dict$clean_name
-axis_name <- data_dict$axis_name 
-
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#~  We sort the replacements in descending order of length ----
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# this should reduce problems 
-raw_category <- 
-  data_dict %>% 
-  select(raw_category) %>% 
-  mutate(raw_category = ifelse(is.na(raw_category), "PLACEHOLDER_TEXT_PLACEHOLDER_TEXT",  raw_category)) 
-
-clean_category <- 
-  data_dict %>% 
-  select(clean_category) %>% 
-  mutate(clean_category = ifelse(is.na(clean_category), "PLACEHOLDER_TEXT_PLACEHOLDER_TEXT",  clean_category)) 
+data_dict <- read_excel(here("data/data_dictionary.xlsx")) 
+raw_category <- transmute(data_dict, raw_category = ifelse(is.na(raw_category), "PLACEHOLDER_TEXT_",  raw_category)) 
+clean_category <- transmute(data_dict, clean_category = ifelse(is.na(clean_category), "PLACEHOLDER_TEXT_",  clean_category)) 
 
 # place together and arrange so order is preserved
 category_dictionary_tib <- 
@@ -187,19 +148,25 @@ category_dictionary_tib <-
   mutate(length = str_length(raw_category)) %>% 
   arrange(-length)
 
+## now extract the arranged vectors
 raw_category <- category_dictionary_tib$raw_category 
 clean_category <- category_dictionary_tib$clean_category 
 
+## combine into final dictionary 
 category_dictionary <- setNames(object = clean_category, nm = raw_category)
 
 
-yao <-
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# ~  Read and process data ----
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+yao_raw <- read_csv(file = here("data/yaounde_covid_seroprev_dataset.csv"))
+
+yao_clean <-
   yao_raw %>%
   ## add counter column. 1 for all real records. Useful for counting later (where we use 0 for fake records)
   mutate(counter = 1) %>% 
-  ## rename to new names
-  rename_with(.cols = any_of(raw_name), .fn = ~ clean_name[which(raw_name == .x)]) %>%
-  # select(where( ~ !(all(is.na(.x)) | all(.x=="")) )) %>%
+  mutate(all_respondents = "1") %>% 
   # filter out records not validated. There are 4 people from one household that were accidentally interviewed. We drop them.
   filter(cat_validation_status == "validation_status_approved") %>% 
   # For paper, drop everyone who did not get tested for antibodies
@@ -244,12 +211,12 @@ mutate(cat_educ = case_when(cat_educ == "ecole_secondaire" ~ "Secondary",
                                       has_mem_lost_job == "pas_de_perte_de_travail_revenus" ~ "No loss of work income", 
                                       has_mem_lost_job == "diminution_du_temps_de_travail_revenus" ~ "Reduction in work income", 
                                       TRUE ~ has_mem_lost_job)) %>%
-  mutate(has_partic_COVID_study = recode(has_partic_COVID_study, 
+  mutate(has_partic_COVID_study = dplyr::recode(has_partic_COVID_study, 
                                          "ne_sais_pas" = "Don't Know")) %>% 
-  mutate(has_tested = recode(has_tested, 
+  mutate(has_tested = dplyr::recode(has_tested, 
                              "ne_r_ponds_pas__inappropri__ne_sait_pas_" = "No response"
   )) %>% 
-  mutate(is_smoker = recode(is_smoker, 
+  mutate(is_smoker = dplyr::recode(is_smoker, 
                             "No_fumeur__je_n_ai_jamais_fum" = "Non-smoker", 
                             "fumeur__je_fume_actuellement" = "Smoker", 
                             "ex_fumeur__j_ai_fum__mais_ne_fume_plus" = "Ex-smoker"
@@ -257,37 +224,30 @@ mutate(cat_educ = case_when(cat_educ == "ecole_secondaire" ~ "Secondary",
   is_smoker = if_else(str_detect(is_smoker, "jamais"), 
                       "Non-smoker", 
                       is_smoker) ) %>% 
-  mutate(has_contact_COVID = recode(has_contact_COVID, 
+  mutate(has_contact_COVID = dplyr::recode(has_contact_COVID, 
                                     "je_ne_sais_pas" = "I don't know"
   )) %>% 
-  mutate(has_contact_traveler = recode(has_contact_traveler, 
+  mutate(has_contact_traveler = dplyr::recode(has_contact_traveler, 
                                         "je_ne_sais_pas" = "I don't know"
   )) %>% 
-  mutate(rate_virus_serious = recode(rate_virus_serious, 
+  mutate(rate_virus_serious = dplyr::recode(rate_virus_serious, 
                                      "plus_haut_que_les_autres_personnes" = "More than other people's", 
                                      "moins_que_les_autres_personnes" = "Less than other people's", 
                                      "comme_les_autres_personnes" = "The same as other people's"
   )) %>% 
-  mutate(had_break_med = recode(had_break_med, 
-                                "je_n_ai_pas_fais_de_d_marches" = "I haven't taken any steps"
-  )) %>% 
-  mutate(cat_aid_frequency = recode(cat_aid_frequency, 
-                                    "plus_souvent" = "More often", 
-                                    "moins_souvent" = "Less often", 
-                                    "egal" = "With the same frequency" )) %>% 
-  mutate(cat_sero_test_done = recode(cat_sero_test_done, 
+  mutate(cat_sero_test_done = dplyr::recode(cat_sero_test_done, 
                                      "test_s_rologique_non_fait" = "Serologic test not done", 
                                      "test_s_rologique_fait" = "Serologic test done")) %>% 
-  mutate(cat_igg_result = recode(cat_igg_result, 
+  mutate(cat_igg_result = dplyr::recode(cat_igg_result, 
                                  "positif" = "Positive", 
                                  "n_gatif" = "Negative")) %>% 
-  mutate(cat_igm_result = recode(cat_igm_result, 
+  mutate(cat_igm_result = dplyr::recode(cat_igm_result, 
                                  "positif" = "Positive", 
                                  "n_gatif" = "Negative")) %>% 
-  mutate(cat_antigen_result = recode(cat_antigen_result, 
+  mutate(cat_antigen_result = dplyr::recode(cat_antigen_result, 
                                      "positif" = "Positive", 
                                      "n_gatif" = "Negative")) %>% 
-  mutate(cat_PCR_result = recode(cat_PCR_result, 
+  mutate(cat_PCR_result = dplyr::recode(cat_PCR_result, 
                                  "positif" = "Positive", 
                                  "n_gatif" = "Negative", 
                                  "test_non_interpr_table" = "Non-interpretable", 
@@ -312,8 +272,6 @@ mutate(across(.cols = function(.x) is.character(.x) | is.factor(.x) , .fns = ~ s
   # Undo some unwanted cleaning side effects  ----
   mutate(mcat_recommend = str_replace_all(mcat_recommend, 
                                         "Recommended a No-COVID consultation", "Recommended a non-COVID consultation")) %>% 
-  # Convert dates to dates
-  mutate(across(.cols = starts_with("dt_"), .fns = ~ as.Date(.x))) %>% 
   # calculate BMI
   mutate(val_BMI =  val_weight_kg/(((val_height_cm)/100)^2)  ) %>% 
   # # positivity categories
@@ -322,19 +280,23 @@ mutate(across(.cols = function(.x) is.character(.x) | is.factor(.x) , .fns = ~ s
   #                          "Negative")) %>% 
   # mutate(cat_pos = factor(cat_pos, levels = c("Positive", "Negative"))) %>% 
   # positivity categories
-  mutate(cat_pos = NA_character_) %>% 
-  mutate(cat_pos = ifelse(cat_igg_result == "Positive" , 
-                           "Positive", 
-                           cat_pos)) %>% 
-  mutate(cat_pos = ifelse(cat_igg_result == "Negative" , 
-                           "Negative", 
-                           cat_pos)) %>% 
-  mutate(cat_pos = factor(cat_pos, levels = c("Positive", "Negative"))) %>% 
+  ## positivity category was originally meant to be either igg or igm
+  ## but we changed to just igg
+  mutate(cat_pos = cat_igg_result) %>% 
+  mutate(cat_pos = factor(cat_pos, levels = c("Positive", "Negative"))) %>%  
+  mutate(cat_igg_result_num = dplyr::recode(cat_igg_result, 
+                                      "Negative" = "0", 
+                                      "Positive" = "1"), 
+         cat_igg_result_num = as.numeric(cat_igg_result_num)) %>% 
+  mutate(cat_igm_result_num = dplyr::recode(cat_igm_result, 
+                                     "Negative" = "0", 
+                                     "Positive" = "1"), 
+         cat_igm_result_num = as.numeric(cat_igm_result_num)) %>% 
   #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   #~ Infection Regression prep ----
   #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   # set dependent var for regression
-  mutate(cat_pos_num = recode(cat_pos, "Positive"  = 1, "Negative" = 0)) %>% 
+  mutate(cat_pos_num = dplyr::recode(cat_pos, "Positive"  = 1, "Negative" = 0)) %>% 
   # age categories
   mutate(cat_age = cut(val_age, 
                        breaks = c(4.9,14,29,44,65,100), 
@@ -350,7 +312,7 @@ mutate(across(.cols = function(.x) is.character(.x) | is.factor(.x) , .fns = ~ s
   ) %>% 
   # contact with traveler 
   mutate(has_contact_traveler = ifelse(is.na(has_contact_traveler), "I don't know", has_contact_traveler), 
-         has_contact_traveler = recode(has_contact_traveler, 
+         has_contact_traveler = dplyr::recode(has_contact_traveler, 
                                         "No" = "No contact with traveler", 
                                         "Yes" = "Recent contact with traveler", 
                                         "I don't know" = "Unsure about traveler contact"), 
@@ -361,7 +323,7 @@ mutate(across(.cols = function(.x) is.character(.x) | is.factor(.x) , .fns = ~ s
          ) %>% 
   # contact with COVID 
   mutate(has_contact_COVID = ifelse(is.na(has_contact_COVID), "I don't know", has_contact_COVID), 
-         has_contact_COVID = recode(has_contact_COVID, 
+         has_contact_COVID = dplyr::recode(has_contact_COVID, 
                                         "No" = "No COVID contact", 
                                         "Yes" = "Recent COVID contact", 
                                     "I don't know" = "Unsure about COVID contact"), 
@@ -371,22 +333,20 @@ mutate(across(.cols = function(.x) is.character(.x) | is.factor(.x) , .fns = ~ s
                                                    "Unsure about COVID contact"))
   ) %>% 
   # chronic conditions
-  mutate(has_chronic = recode(has_chronic, 
+  mutate(has_chronic = dplyr::recode(has_chronic, 
                               "No response" = "No comorbidity", 
                               "No" = "No comorbidity", 
                               "Yes" = "Has comorbidity")) %>%  
   mutate(has_chronic = factor(has_chronic, levels = c("No comorbidity", "Has comorbidity"))) %>% 
   # is breadwinner 
-  mutate(is_breadwin = recode(is_breadwin, 
+  mutate(is_breadwin = dplyr::recode(is_breadwin, 
                               "No response" = "Not breadwinner", 
                               "No" = "Not breadwinner",
                               "Yes" = "Breadwinner")) %>% 
   mutate(is_breadwin = factor(is_breadwin, levels = c("Not breadwinner", "Breadwinner"))) %>% 
-  # respect of distancing rules
-  mutate(is_respecting_distancing = factor(is_respecting_distancing, levels = c("Definitely yes", "Partly", "Definitely not", "No response" ) )) %>% 
   # hhld area
   mutate(loc_hhld_area = str_to_title(loc_hhld_area),
-         loc_hhld_area = recode(loc_hhld_area, 
+         loc_hhld_area = dplyr::recode(loc_hhld_area, 
                                 "Citeverte" = "Cité Verte", 
                                 "Tsingaoliga" = "Tsinga Oliga"), 
          loc_hhld_area = fct_relevel(loc_hhld_area, "Cité Verte")) %>% 
@@ -403,20 +363,13 @@ mutate(across(.cols = function(.x) is.character(.x) | is.factor(.x) , .fns = ~ s
   #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   #~ Symptomatic Regression prep ----
   #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  mutate(COVID_symptom_count = rowSums(select(., matches("has_symp") & matches('cough|fever|fatigue|headache|muscle_pain|sore_throat|runny|short_breath|nausea|diarrhoea')))) %>% 
+  mutate(COVID_symptom_count = rowSums(select(., matches("had_symp") & matches('cough|fever|fatigue|headache|muscle_pain|sore_throat|runny|short_breath|nausea|diarrhoea')))) %>% 
   mutate(has_COVID_symptoms = "No",
-         has_COVID_symptoms = ifelse(has_symp_lost_smell == 1, "Yes", has_COVID_symptoms), 
-         has_COVID_symptoms = ifelse(has_symp_fever == 1 & has_symp_cough == 1 , "Yes", has_COVID_symptoms), 
+         has_COVID_symptoms = ifelse(had_symp_lost_smell == 1, "Yes", has_COVID_symptoms), 
+         has_COVID_symptoms = ifelse(had_symp_fever == 1 & had_symp_cough == 1 , "Yes", has_COVID_symptoms), 
          has_COVID_symptoms = ifelse(COVID_symptom_count >= 3 , "Yes", has_COVID_symptoms)) %>% 
   mutate(has_COVID_symptoms_num  = ifelse(has_COVID_symptoms == "Yes", 1, 0)) %>% 
   mutate(is_smoker = factor(is_smoker, levels = c("Non-smoker", "Ex-smoker", "Smoker"))) %>% 
-  #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  #~ Socioecon impact questions ----
-  #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  mutate(has_confin_stopped_work = factor(has_confin_stopped_work, levels = c("Yes", "No", "No response"))) %>% 
-  mutate(has_faced_violence = recode(has_faced_violence, "No response" = "NR")) %>% 
-  mutate(has_rev_dropped = recode(has_rev_dropped, "No response" = "NR")) %>% 
-  mutate(has_confin_disrupted_life = recode(has_confin_disrupted_life, "No response" = "NR")) %>% 
   #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   #~ Make sure factors are factors ----
   #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -439,39 +392,56 @@ mutate(across(.cols = function(.x) is.character(.x) | is.factor(.x) , .fns = ~ s
   mutate(has_chron_or_symp = (has_acute_symp == "Yes" | has_chronic == "Has comorbidity")) %>% 
   # Only two individuals responded with "Other" THey consulted a pharmacist and a kinesthesiologist
   mutate(has_consult_formal_care = str_detect(mcat_consult_any, "Private|Public|Nurse|Doctor|Other"), 
-         has_consult_formal_care = replace_na(has_consult_formal_care, FALSE)
-  ) %>% 
-  mutate(has_diffic_pay_medic = recode(has_diffic_pay_medic, 
-                                       "I have not tried" = "No financial difficulty",
-                                       "No" = "No financial difficulty",
-                                       "No response" = "No financial difficulty", 
-                                       "Yes" = "Some financial difficulty")) %>% 
-  mutate(has_diffic_travel_care = recode(has_diffic_travel_care, 
-                                       "I have not tried" = "No travel difficulty",
-                                       "No" = "No travel difficulty",
-                                       "No response" = "No travel difficulty", 
-                                       "Yes" = "Some travel difficulty")) %>% 
-  mutate(thinks_clinics_dangerous_COVID = ifelse(str_detect(mcat_diffic_find_care, "dangerous"),
-                                              "Yes, dangerous", 
-                                              "Not dangerous")) %>% 
-  mutate(thinks_clinics_closed_COVID = ifelse(str_detect(mcat_diffic_find_care, "closed"),
-                                              "Yes, closed", 
-                                              "Not closed")) %>% 
-  mutate(thinks_clinics_price_hiked_COVID = ifelse(str_detect(mcat_diffic_find_care, "price"),
-                                              "Yes, price-hiked", 
-                                              "Not price-hiked")) %>% 
-  mutate(is_fearful_stigma = recode(is_fearful_stigma, 
-                                    "Yes" = "Worried about stigma", 
-                                    "No" = "Not worried about stigma",
-                                    "No response" = "Not worried about stigma")) %>% 
+         has_consult_formal_care = replace_na(has_consult_formal_care, FALSE)) %>% 
 # COVID-compatible symptoms
   mutate(has_COVID_compatible_symp = ifelse(mcat_symp == "No symptoms", "No", "Yes")) %>% 
   mutate(has_COVID_compatible_symp = ifelse(mcat_symp == "Other", "No", has_COVID_compatible_symp))
 
-  
+
+## read in DHS age-sex data (for weighting)
+yaounde_dhs_age_sex <- 
+  read_excel(here("data/yaounde_age_2018_2020.xlsx"), sheet = 2) %>% 
+  select(age_lower, age_upper, cat_age, male, female, total) %>% 
+  # create wider age categories, then resummarise
+  mutate(cat_age = cut(age_lower, c(5,15,30,45,65,105), right = FALSE )) %>% 
+  group_by(cat_age) %>% 
+  summarise(n_male_dhs = sum(male),
+            n_female_dhs = sum(female)) %>% 
+  # NA category is under 5s
+  filter(!is.na(cat_age)) %>% 
+  mutate(cat_age = factor(cat_age, labels = c("5 - 14", "15 - 29", "30 - 44", "45 - 64", "65 +"))) %>% 
+  pivot_longer(cols = c(2:3), values_to = "stratum_size_dhs", names_to = "cat_sex") %>% 
+  mutate(cat_sex = dplyr::recode(cat_sex, 
+                          "n_male_dhs" = "Male", 
+                          "n_female_dhs" = "Female"))
 
 
-  
+## create weights object
+age_sex_weights <- 
+  yao_clean %>% 
+  filter(!is.na(cat_igg_result)) %>% 
+  group_by(cat_age, cat_sex) %>% 
+  summarise(n = n()) %>% 
+  group_by(cat_age, cat_sex) %>% 
+  mutate(stratum_size_sample = sum(n)) %>% 
+  ungroup() %>% 
+  rename(n_pos = n) %>% 
+  left_join(yaounde_dhs_age_sex) %>% 
+  ## weight is basically "how many real people does each sampled person represent"
+  ## this is calculated as: (stratum size in ref. pop)/(stratum size in sample)
+  mutate(stratum_weight = stratum_size_dhs/stratum_size_sample) %>% 
+  ## normalize so that the sum of weights is the number of individuals in sample
+  mutate(weight_per_individual = stratum_weight * sum(stratum_size_sample)/sum(stratum_size_dhs)) %>% 
+  ## drop unneeded
+  select(cat_age, cat_sex, stratum_size_dhs, stratum_size_sample, stratum_weight, weight_per_individual)
+
+
+# ~~~~++  bind weights to yao data frame ----
+yao <- 
+  yao_clean %>% 
+  left_join(age_sex_weights, by = c("cat_age", "cat_sex")) 
+
+
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #~  Household representatives subset ----
@@ -515,30 +485,3 @@ yao_has_chron_or_symp <-
   filter(has_chron_or_symp)
 
 
-# 
-# ## write IgG serology data to file. Matching the Geneva paper 
-# yao %>% 
-#   mutate(counter = 1) %>% 
-#   mutate(week = lubridate::week(dt_quest)) %>% 
-#   mutate(pos = ifelse(cat_igg_result == "Positive", 1, 0 ), 
-#          neg = ifelse(pos == 1, 0, 1)
-#          ) %>% 
-#   mutate(ind = ifelse(is.na(pos),  1, 0)) %>% 
-#   mutate(pos = replace_na(pos, 0)) %>% 
-#   mutate(neg = replace_na(neg, 0)) %>% 
-#   mutate(id_hhld = as.numeric(as.factor(id_hhld))) %>% 
-#   group_by(id_hhld) %>% 
-#   mutate(id_ind = as.numeric(as.factor(id_hhld)),
-#          id_ind = paste(id_hhld, id_ind, sep = "-")) %>%
-#   mutate(cat_sex = ifelse(cat_sex == "Male", 1, 0)) %>%  
-#   select(ind_id = id_ind, 
-#          new_household_id = id_hhld, 
-#          Sex = cat_sex,
-#          age = val_age,
-#          week, 
-#          pos, 
-#          ind,
-#          neg) %>% 
-#   write_csv("generated_data/serocov-pop_data_yaounde.csv")
-# 
-# 

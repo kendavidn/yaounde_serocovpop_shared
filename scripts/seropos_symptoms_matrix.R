@@ -35,11 +35,11 @@ plot_pos <-
   ggplot(aes(x = 1, y = prop, fill = has_COVID_compatible_symp)) +
   geom_col(colour = "white") +
   geom_richtext(aes(x = 1, y = cum_prop, label = text_paste), 
-                fill = alpha("white", 0.7), vjust = 1.5, size = 2.5
+                fill = alpha("white", 0.7), vjust = 1.5, size = 2.1
                 ) + # if labels are desired
   scale_fill_manual(values = c(alpha(igg_pos_color, 0.3), alpha(igg_pos_color, 0.7))) +
   theme_void() + 
-  theme(legend.position = "none")
+  theme(legend.position = "none") 
 
 scale_df_pos <- df_pos$cat_igg_result_count[1]
 
@@ -48,7 +48,7 @@ plot_neg <-
   ggplot(aes(x = 1, y = prop, fill = has_COVID_compatible_symp)) +
   geom_col(colour = "white") +
   geom_richtext(aes(x = 1, y = cum_prop, label = text_paste), 
-                fill = alpha("white", 0.5), vjust = 1.5, hjust = 0.5, size = 2.5,
+                fill = alpha("white", 0.5), vjust = 1.2, hjust = 0.5, size = 2.1,
   ) + # if labels are desired
   scale_fill_manual(values = c(alpha(igg_neg_color, 0.3), alpha(igg_neg_color, 0.7))) +
   theme_void() + 
@@ -62,6 +62,6 @@ seropos_symptoms_matrix_plot <-
   plot_grid(plot_pos, plot_neg, 
           labels = c("IgG positive", "IgG negative"), 
           label_size = 7.7,
-          label_x = c(-0.18, 0.18),
+          label_x = c(-0.3, 0.12),
           rel_widths = c(scale_df_pos, scale_df_neg))
 

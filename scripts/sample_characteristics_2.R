@@ -218,3 +218,5 @@ sample_characteristics_2_table <-
   set_bold(row = c(rows_to_merge + 1), col = 1) %>% 
   set_latex_float("h!") %>% 
   set_all_padding(0.5)
+
+

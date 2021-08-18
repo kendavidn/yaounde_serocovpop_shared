@@ -5,27 +5,6 @@
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-printpick <- function(p) {
-  if (params$mode == "word" | params$mode == "pdf") {
-    return(p)
-  } else if (params$mode == "html") {
-    return(ggplotly(p))
-  } else {
-    print("params not set")
-  }
-}
-
-
-gt_or_kable <- function(tab) {
-  if (params$mode == "html" | params$mode == "pdf") {
-    gt(tab)
-  } else if (params$mode == "word"){
-    kable(tab)
-  } else {
-    print("params not set")
-  }
-}
-
 countprop <- function(df, col, fct_reorder = T, fct_inseq = F, date_parse = F,  na_relevel = F) {
   out <- df %>%
     group_by({{ col }}) %>%
@@ -58,98 +37,6 @@ countprop <- function(df, col, fct_reorder = T, fct_inseq = F, date_parse = F,  
 }
 
 
-# ~~ Rename for countplot axis function ---------------------------
-
-
-rename_for_countplot_axis <- function(df) {
-  the_clean_name <- names(df)[1]
-  cleaned_name <- axis_name[which(clean_name == the_clean_name)]
-  out <-
-    df %>%
-    rename_with(.cols = 1, .fn = ~cleaned_name)
-  return(out)
-}
-
-
-# ~~ Count plot function ---------------------------
-
-countplot <- function(df, col, drop_unused = F, multi_color = F, flip = F,
-                      vjust_label = -0.2, hjust_label = 0.5, remove_titles = F, date_parse = F) {
-  p <-
-    df %>%
-    ggplot() +
-    geom_blank() +
-    theme(legend.position = "none") +
-    scale_y_continuous(expand = expansion(mult = c(0, 0.2))) +
-    coord_cartesian(clip = "off") + 
-    theme(axis.text.x = element_text(face = "bold", color = "black"),
-          axis.text.y = element_text(face = "bold", color = "black"))
-
-  ifelse(multi_color == TRUE,
-    p <- p + geom_col(aes(x = {{ col }}, y = n, fill = {{ col }}), width = 0.7) ,
-    p <- p + geom_col(aes(x = {{ col }}, y = n), fill = "#1c6db0", width = 0.7)
-  )
-  
-  ifelse(flip == TRUE,
-    p <- p + geom_richtext(aes(x = {{ col }}, y = n, label = countprop_nobreak),
-      size = 2.5, alpha = 0.85, vjust = vjust_label, hjust = hjust_label,
-      label.padding = unit(c(0.1, 0.1, 0.1, 0.1), "lines")
-    ),
-    p <- p + geom_richtext(aes(x = {{ col }}, y = n, label = countprop),
-      size = 2.5, alpha = 0.85, vjust = vjust_label, hjust = hjust_label,
-      label.padding = unit(c(0.1, 0.1, 0.1, 0.1), "lines")
-    ) )
-    
-  if(date_parse == FALSE){ 
-           p + scale_x_discrete(drop = drop_unused, expand = expansion(add = c(0.5, 0.5)))
-  }
-
-  if (flip == TRUE) {
-    p <- p + coord_flip(clip = "off")
-  }
-
-  if (remove_titles == TRUE) {
-    p <- p +
-      theme(
-        axis.title.x = element_blank(),
-        axis.title.y = element_blank()
-      )
-  }
-
-  return(p)
-}
-
-
-# ~~ Count plot print function ---------------------------
-
-
-countplotprint <- function(df, col, flip = F, fct_reorder = F, fct_inseq = F, date_parse = F, multi_color = F, na_relevel = F, drop_unused = F, 
-                           vjust_label = -0.2, hjust_label = 0.5, remove_titles = T) {
-  
-  if(flip == TRUE){
-    vjust_label <- 0.5 
-    hjust_label <- -0.2
-  } 
-  
-  ## summarise then rename the variables
-  df1 <- 
-    df %>%
-    countprop({{ col }}, fct_reorder = fct_reorder, fct_inseq = fct_inseq, date_parse = date_parse, na_relevel = na_relevel) %>%
-    rename_for_countplot_axis()
-
-  ## extract variable name to pass to plot function
-  the_axis_name <- names(df1)[1]
-
-  p <-
-    df1 %>%
-    countplot(.data[[the_axis_name]], drop_unused = drop_unused, multi_color = multi_color, 
-              flip = flip, vjust_label = vjust_label, hjust_label = hjust_label, remove_titles = remove_titles, date_parse)
-  
-  
-  ## print pdf or html
-  printpick(p)
-}
-
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #   plot_upset FUNCTION ----
@@ -180,19 +67,6 @@ plot_upset <- function(df,
     denom <- df
     
   }
-  
-  # df = yao %>%
-  #   filter(cat_igg_result == "Positive") %>%
-  #   filter(mcat_symp != "No symptoms")
-  # 
-  # cat_col = expr(mcat_symp)
-  # sep = "--"
-  # intersect_max_bars = 10
-  # denom =  yao %>% filter(cat_igg_result == "Negative")
-  # set_size_lab = "Prevalence \n(% and No. with this symptom)"
-  # intersect_size_lab = "Co-prevalence, \n % and no. with this combination of symptoms"
-  # intersect_cutoff = 0
-  # id_col = "id_ind"
   
   # Drop individuals with combinations that occur too infrequently
   # intersection size and matrix plot will use cut data frame
@@ -416,7 +290,9 @@ plot_upset2 <- function(df,
                        intersect_max_bars = Inf,
                        # restrict_sets_to = NA,
                        set_size_lab = "Set size, \n % who ticked this option",
-                       intersect_size_lab = "Intersection size, \n % who ticked this combination"
+                       intersect_size_lab = "Intersection size, \n % who ticked this combination", 
+                       theme_axis_text_x_top_size = 6,
+                       scale_size_continuous_range = c(2.2,3.8)
 ){
 
   if(is.na(denom)){
@@ -541,7 +417,7 @@ plot_upset2 <- function(df,
     geom_point(aes(x = set , y = !!enquo(cat_col), size = value, alpha = value)) + 
     geom_stripes(data = intersect_matrix,
                  aes(y = !!enquo(cat_col))) +
-    scale_size_continuous(range = c(2.2,3.8)) + 
+    scale_size_continuous(range = scale_size_continuous_range) + 
     scale_alpha_continuous(range = c(0.08,1)) + 
     scale_y_discrete(expand = expansion(add = c(0.75, 0.75)), position = "left") +
     scale_x_discrete(expand = expansion(add = c(0.5, 0.5)), position = "top") +
@@ -550,7 +426,7 @@ plot_upset2 <- function(df,
     theme(legend.position = "none",
           axis.text.y = element_blank(), 
           axis.ticks.x.bottom = element_blank(), 
-          axis.text.x.top = element_text(angle = 60, hjust = 0, color = "black", family = "Avenir Next"),
+          axis.text.x.top = element_text(size = theme_axis_text_x_top_size, angle = 60, hjust = 0, color = "black", family = "Avenir Next"),
           axis.ticks.y = element_blank(),
           axis.title = element_blank(),
           plot.title.position = "plot",
@@ -671,6 +547,84 @@ lang_rei_CI <-  function(
   
   return(data.frame(LCL, UCL))
 }
+
+
+
+
+ggplot_adjPrevSensSpecCI <- function (prevCI, sensCI, specCI, N = 1000000, method = "hdi", 
+                                      alpha = 0.05, doPlot = FALSE, prev = NULL, sens = NULL, 
+                                      spec = NULL, ylim = NULL) {
+
+  prevDist <- bootComb::getBetaFromCI(qLow = prevCI[1], qUpp = prevCI[2], 
+                            alpha = alpha)
+  sensDist <- bootComb::getBetaFromCI(qLow = sensCI[1], qUpp = sensCI[2], 
+                            alpha = alpha)
+  specDist <- bootComb::getBetaFromCI(qLow = specCI[1], qUpp = specCI[2], 
+                            alpha = alpha)
+  distList <- list(prevDist$r, sensDist$r, specDist$r)
+  combFun <- function(pars) {
+    bootComb::adjPrevSensSpec(prevEst = pars[[1]], sens = pars[[2]], 
+                    spec = pars[[3]])
+  }
+  if (!is.null(prev) & !is.null(sens) & !is.null(spec)) {
+    adjPrev <- bootComb::adjPrevSensSpec(prev, sens, spec)
+  }
+  adjPrevCI <- bootComb::bootComb(distList = distList, combFun = combFun, 
+                        N = N, method = method, coverage = 1 - alpha, doPlot = FALSE, 
+                        legPos = NULL, returnBootVals = TRUE, validRange = c(0, 
+                                                                             1))
+  
+  ## build plot
+  x <- seq(0, 1, length = 1000)
+  yPrev <- dbeta(x, prevDist$pars[1], prevDist$pars[2])
+  ySens <- dbeta(x, sensDist$pars[1], sensDist$pars[2])
+  ySpec <- dbeta(x, specDist$pars[1], specDist$pars[2])
+  ylim_max <- max(yPrev, ySens, ySpec)
+  
+  parameter_densities <- 
+    data.frame(x, yPrev, ySens, ySpec) %>% 
+    as_tibble() %>% 
+    pivot_longer(cols = 2:4, names_prefix = "y") %>% 
+    ggplot() + 
+    geom_line(aes(x = x, y = value, color = name), size = 1.3) + 
+    labs(y = "Density", x = "Probability parameter", 
+         title = "") + 
+    scale_color_manual(values = paletteer_d("ggsci::default_jco"), 
+                       labels = c("Crude prevalence", "Sensitivity", "Specificity"), 
+                       name = "")
+  
+  seroprev_estimate_densities <- 
+  tibble(values = adjPrevCI$bootstrapValues) %>% 
+    ggplot() + 
+    geom_histogram(aes(x = values), bins = 100, fill = "dodgerblue2", 
+                   color = "dodgerblue4") + 
+    annotate("segment", 
+             x = adjPrevCI$conf.int[1], xend = adjPrevCI$conf.int[1], 
+             y = 0, yend = Inf, color = "black", linetype = "dashed", size = 1) +
+    annotate("segment", 
+             x = adjPrevCI$conf.int[2], xend = adjPrevCI$conf.int[2], 
+             y = 0, yend = Inf, color = "black", linetype = "dashed", size = 1) + 
+    annotate("segment", 
+             x = adjPrev, xend = adjPrev, 
+             y = 0, yend = Inf, color = "darkred", size = 1) + 
+    labs(x = "Adjusted seroprevalence", 
+         y = "Density", 
+         title = "") + 
+    annotate("segment", x = 0.7, xend = 0.75, y = 2000, yend = 2000,
+             color = "darkred", size = 0.8) + 
+    annotate("text", label = "Estimate", x = 0.79, y = 2000,  size = 3) + 
+    annotate("segment", linetype = "dashed", x = 0.7, xend = 0.75, y = 1750, yend = 1750,
+             color = "black", size = 0.8) + 
+    annotate("text", label = "95% CI", x = 0.79, y = 1750,  size = 3) 
+  
+  
+  output_plot <- 
+    cowplot::plot_grid(parameter_densities, seroprev_estimate_densities, 
+                       nrow = 2, labels = "AUTO")
+  
+  return(output_plot)
+}
+
 # 
 # # Example 1.
 # CI_Binom(
@@ -708,155 +662,6 @@ lang_rei_CI <-  function(
 #   return(data.frame(upper_int = upper_int, 
 #                     lower_int = lower_int))
 # }
-
-
-# 
-# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# #   MANUAL UPSET FUNCTION ----
-# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# 
-# 
-# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# #~  Calculate intersection size----
-# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# 
-# intersect_size <-
-#   yao %>%
-#   count(cat_breadwin) %>%
-#   mutate(prop = n / sum(unique(n))) %>%
-#   mutate(countprop = paste0("**", n, "**", ",<br>", "<span style='color:gray30'>", 
-#                             round(100 * prop, 1), "%", "</span>")) %>% 
-#   mutate(cat_breadwin = fct_reorder(cat_breadwin, -n)) %T>% 
-#   {.[1] %>% pull() %>% levels() ->> intersect_size_order}
-# 
-# 
-# 
-# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# #~  Calculate set size  ----
-# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# set_size <- 
-#   yao %>% 
-#   select(id_ind, cat_breadwin) %>% 
-#   separate_rows(cat_breadwin,sep = "--") %>% 
-#   count(cat_breadwin) %>% 
-#   mutate(cat_breadwin = fct_reorder(cat_breadwin, n)) %>%
-#   mutate(prop = n / length(unique(yao$id_ind))) %>%
-#   mutate(countprop = paste0("**", n, "**", ",<br>", "<span style='color:gray30'>", 
-#                             round(100 * prop, 1), "%", "</span>")) %T>% 
-#   {.[1] %>% pull() %>% levels() ->> set_size_order}
-# 
-# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# #~  Derive intersection matrix ----
-# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# 
-# ## extract column names for upset data frame
-# 
-# set_names <- 
-#   intersect_size[,1] %>% 
-#   mutate(cat_breadwin = as.character(cat_breadwin)) %>% 
-#   separate_rows(1, sep = "--") %>% 
-#   pull(1) %>% unique()
-# 
-# ##  convert from tibble to df, fill in df then back to tibble
-# 
-# intersect_matrix_init <- data.frame(intersect_size[,1])
-# 
-# for (row in 1:nrow(intersect_matrix_init)) {
-#   for (i in set_names) {
-#     if (str_detect(intersect_matrix_init[row, 1], i)) {
-#       intersect_matrix_init[row, i] <- 1
-#     }
-#   }
-# }
-# 
-# intersect_matrix <- 
-#   intersect_matrix_init %>% 
-#   as_tibble() %>% 
-#   mutate(across(.cols = 2:ncol(.), .fns = ~ replace_na(.x, 0))) %>% 
-#   pivot_longer(cols = 2:ncol(.), names_to = "set") %>% 
-#   mutate(cat_breadwin = factor(cat_breadwin, levels = intersect_size_order )) %>% 
-#   mutate(set = factor(set, levels = set_size_order ) )
-# 
-# 
-# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# #~  Plot data ----
-# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# 
-# intersect_matrix_plot <- 
-#   intersect_matrix %>% 
-#   ggplot() + 
-#   geom_point(aes(y = set , x = cat_breadwin, size = value)) + 
-#   geom_stripes(data = intersect_matrix,
-#                aes(y = set)) +
-#   scale_size_continuous(range = c(-1,5)) + 
-#   theme(legend.position = "none",
-#         axis.text.x = element_blank(), 
-#         axis.line.x.bottom = element_blank(),
-#         axis.ticks.x.bottom = element_blank(), 
-#         axis.title.x = element_blank(), 
-#         axis.title.y = element_blank(), 
-#         axis.text.y = element_text(hjust = 0, size = 10), 
-#         axis.ticks.y = element_blank()
-#   )
-# 
-# 
-# intersect_size_plot <- 
-#   intersect_size %>% 
-#   ggplot() +
-#   geom_col(aes(x = cat_breadwin, y = n), fill = "skyblue3", width = 0.7) +
-#   geom_richtext(aes(x = cat_breadwin , y = n, label = countprop), size = 3, alpha = 0.85, vjust = -0.2 ) +
-#   scale_y_continuous(expand = expansion(mult = c(0, 0.07))) +
-#   scale_x_discrete(expand = expansion(mult = c(0, 0))) +
-#   coord_cartesian(clip = "off") +
-#   labs(y = "", title = "Intersection size \n(and % who chose this combination)") +
-#   theme(
-#     axis.text.x = element_blank(),
-#     axis.title.x = element_blank(),
-#     axis.ticks.x.bottom = element_blank(),
-#     axis.title.y = element_text(hjust = 0.5), 
-#     plot.title = element_text(size = 10)
-#   )
-# 
-# 
-# set_size_plot <-  
-#   set_size %>% 
-#   ggplot() +
-#   geom_col(aes(x = cat_breadwin, y = n), fill = "skyblue3", width = 0.7) +
-#   geom_richtext(aes(x = cat_breadwin , y = n, label = countprop), size = 3, alpha = 0.85, hjust = 1 ) +
-#   scale_x_discrete(expand = expansion(mult = c(0, 0))) +
-#   scale_y_reverse(expand = expansion(mult = c(0.2, 0))) +
-#   coord_flip(clip = "off") +
-#   labs(x = "", y = "Set size \n(and % who chose this option)") + 
-#   theme(
-#     axis.ticks.x.bottom = element_blank(), 
-#     axis.text.y = element_blank(), 
-#     axis.ticks.y = element_blank()
-#   )
-# 
-# 
-# layout <- c(
-#   area(1, 1, 5, 3), # spacer
-#   area(1, 4, 5, 10), # intersection size (top right)
-#   area(6, 1, 7, 3), # set size (bottom left)
-#   area(6, 4, 7, 10) # intersection matrix (bottom right)
-# )
-# 
-# # plot(layout)
-# 
-# # plot_spacer() + 
-# #   intersect_size_plot + 
-# #   set_size_plot + 
-# #   intersect_matrix_plot + 
-# #   plot_layout(design = layout)
-# # 
-# # 
-# # 
-# # 
-# 
-# 
-
 
 
 

@@ -15,7 +15,8 @@ igg_over_time <-
   ungroup() %>% 
   select(-wilsonCI) %>% 
   mutate(type = "igg") %>% 
-  select(type, week, prop_pos, wilsonCI_upper, wilsonCI_lower)
+  mutate(prop_print = paste0(pos, " of\n", pos+neg)) %>% 
+  select(type, week, prop_pos, prop_print, wilsonCI_upper, wilsonCI_lower) 
 
 igm_over_time <- 
   yao %>% 
@@ -32,8 +33,8 @@ igm_over_time <-
   ungroup() %>% 
   select(-wilsonCI) %>% 
   mutate(type = "igm") %>% 
-  select(type, week, prop_pos, wilsonCI_upper, wilsonCI_lower)
-
+  mutate(prop_print = paste0(pos, " of\n", pos+neg)) %>% 
+  select(type, week, prop_pos, prop_print, wilsonCI_upper, wilsonCI_lower) 
 
 seroprev_over_time <- 
   igg_over_time %>% 
@@ -55,6 +56,8 @@ seroprev_over_time_plot <-
   seroprev_over_time %>% 
   ggplot(aes(x = week, y = prop_pos, colour = type)) + 
   geom_line(aes(group = type), size = 1) + 
+  geom_label(aes(label = prop_print), size = 2, alpha = 0.7, color = "black", 
+             vjust = 0.1, hjust = 0, fontface = "bold", label.padding = unit(0.65, "mm")) +
   geom_point() + 
   geom_errorbar(aes(ymin = wilsonCI_lower, ymax = wilsonCI_upper), width = 0.25) +
   labs(x = "",  y = "Positive proportion") +
@@ -70,11 +73,14 @@ seroprev_over_time_plot <-
 nine_palette <- paletteer_d("awtools::a_palette") %>% as.character() %>% str_sub(end = 7)
 nine_palette <- c(nine_palette, "#785549")
 
-tests_over_time_plot <- 
+tests_over_time <-   
   yao %>% 
   filter(!is.na(cat_igg_result) & !is.na(cat_igm_result)) %>% 
   group_by(dt_quest, loc_hhld_area) %>% 
-  summarise(tested = sum(counter)) %>% 
+  summarise(tested = sum(counter))
+
+tests_over_time_plot <- 
+  tests_over_time %>% 
   ggplot() + 
   #facet_wrap(~loc_hhld_area, ncol = 1) +
   geom_col(aes(x = dt_quest, y = tested, fill = loc_hhld_area))+ 

@@ -97,8 +97,9 @@ symptoms_per_sero_cat_plot <-
                     label.padding = unit(c(0.1, 0.1, 0.1, 0.1), "lines")) +
       # label significant diff
       geom_text(data = filter(., p_val < 0.05 & cat_pos == "IgG seropositive"),
-                aes(y = mcat_symp, x = pct + 13.5), color = "black", fontface = "plain",
-                label = "*", position = position_nudge(y = -0.05), lineheight = 0.3) +
+                aes(y = mcat_symp, x = pct + 13.5, label = p_val_paste), 
+                color = "black", fontface = "plain", hjust = -0.02, size = 2.5,
+                position = position_nudge(y = 0.08), lineheight = 0.3) +
       # label significant diff
       geom_text(data = filter(., p_val < 0.05 & cat_pos == "IgG seropositive"),
                 aes(y = mcat_symp, x = pct + 12.5), color = "black", fontface = "plain",

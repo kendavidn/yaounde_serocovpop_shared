@@ -18,7 +18,6 @@ yao_regn <-
   mutate(cat_n_hhld_indiv = relevel(cat_n_hhld_indiv, "3 - 5"))
 
 
-
 sample_for_infection_regn <- nrow(yao_regn)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -101,6 +100,7 @@ regn_per_group <-
              signif = (upper_CI > 1 & lower_CI > 1) | (upper_CI < 1 & lower_CI < 1)) %>%
       mutate(estimate = format(estimate, digits = 2 ),
              estimate = as.numeric(estimate),
+             upper_CI = round(upper_CI, digits = 2),
              upper_CI = format(upper_CI, digits = 2 ),
              upper_CI = as.numeric(upper_CI),
              lower_CI = round(lower_CI, digits = 2),
@@ -309,27 +309,6 @@ breadwin_count_and_regn <-
   clean_count_and_regn(label = "Are you the principal breadwinner?", group = "is_breadwin")
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#~  Respect of preventive measures  ----
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-distancing_count <- 
-  yao_regn %>% 
-  filter(is_respecting_distancing %in% c("Definitely yes", "Definitely not", "Partly")) %>% 
-  count_per_group(is_respecting_distancing)
-
-distancing_regn <- 
-  yao_regn %>%
-  filter(is_respecting_distancing %in% c("Definitely yes", "Definitely not", "Partly")) %>% 
-  regn_per_group(is_respecting_distancing)
-
-
-distancing_count_and_regn <- 
-  distancing_count %>% 
-  left_join(distancing_regn) %>% 
-  clean_count_and_regn(label = "Have you followed social distancing rules?", group = "is_respecting_distancing")
-
-
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #~  Household area ----
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -397,7 +376,7 @@ has_hhld_children_count_and_regn <-
 #~  Combine and plot  ----
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-plot_only_p_below_0.2 <- TRUE
+plot_only_p_below_0.3 <- TRUE
 
 
 all_sections_univariate <- 
@@ -410,7 +389,6 @@ all_sections_univariate <-
   bind_rows(chronic_count_and_regn) %>% 
   #bind_rows(occup_section) %>% 
   bind_rows(breadwin_count_and_regn) %>% 
-  bind_rows(distancing_count_and_regn) %>% 
   bind_rows(hhld_area_count_and_regn) %>% 
   bind_rows(cat_n_hhld_indiv_count_and_regn) %>% 
   bind_rows(has_hhld_children_count_and_regn) %>% 
@@ -418,8 +396,8 @@ all_sections_univariate <-
   #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   #~  Filter out p-value not lower than relaxed cutoff
   #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  {if (plot_only_p_below_0.2 == TRUE){
-    filter(.,  wald_chi_square_p_val < 0.2 | group == "cat_age")}
+  {if (plot_only_p_below_0.3 == TRUE){
+    filter(.,  wald_chi_square_p_val < 0.3 | group == "cat_age")}
     else {.}
   } %>% 
   # row ids
@@ -459,6 +437,7 @@ all_regn <-
          signif = (upper_CI > 1 & lower_CI > 1) | (upper_CI < 1 & lower_CI < 1)) %>% 
   mutate(estimate = format(estimate, digits = 2 ),
          estimate = as.numeric(estimate),
+         upper_CI = round(upper_CI, digits = 2),
          upper_CI = format(upper_CI, digits = 2 ),
          upper_CI = as.numeric(upper_CI),
          lower_CI = round(lower_CI, digits = 2),
@@ -491,8 +470,13 @@ all_sections <-
                                                "3 - 5", # number in household
                                                "No children"),
                                  "*Reference*",
-                                 .x )
-  ))
+                                 .x ))) 
+# %>% 
+#   mutate(across(.cols = c(estimate_and_CI, multi_estimate_and_CI),
+#                 .fns = ~ if_else(signif == TRUE, 
+#                                paste0(.x, "\\*"),
+#                                .x)
+#                 ))
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -525,7 +509,6 @@ background_color <- "gray90"
 
 table_sec1 <-
   all_sections %>%
-  mutate(pos_over_n = ifelse(!is.na(n), paste0(pos, " / ", n ), NA )) %>% 
   ggplot() +
   # overall group labels
   geom_richtext(data = subset(all_sections,  is.na(n)), 
@@ -592,6 +575,7 @@ univariate_odds_tab <-
                    expand = expansion(add = y_axis_expansion)) +
   scale_x_continuous(expand = expansion(add = c(0.06, 0.1))) + 
   coord_cartesian(clip = "off")
+
 
 
 univariate_odds_plot <- 
@@ -662,13 +646,13 @@ infection_regn_plot <-
   patchwork::wrap_plots(table_sec1,
                         positive_pct_plot, 
                         univariate_odds_tab,
-                        univariate_odds_plot, 
+                        #univariate_odds_plot, 
                         multivariate_odds_tab,
                         multivariate_odds_plot,
                         nrow = 1, widths = c(4.8,
                                              2,
                                              2,
-                                             1.5,
+                                             #1.5,
                                              2, 
                                              1.5
                         ))

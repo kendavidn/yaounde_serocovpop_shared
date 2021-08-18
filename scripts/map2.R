@@ -29,7 +29,8 @@ region_prevalence <-
   summarise(n_pos = sum(cat_igg_result =="Positive" |
                         cat_igm_result == "Positive",
                         na.rm = T),
-            prev = n_pos / sum(counter)) %>%
+            total = sum(counter),
+            prev = n_pos / total) %>%
   mutate(title = loc_hhld_area)
 
 scale_down_by <- 20e6
@@ -56,11 +57,6 @@ hhlds_pie <-
   # 4 households had coordinates outside the shape boundaries. remove for neatness
   filter(loc_hhld_lat > 3.86 & loc_hhld_long < 11.515) %>%
   filter(!(loc_hhld_lat < 3.871 & loc_hhld_long < 11.504)) %>%  
-  # # add jitter to longitude and latitude to preserve location anonymity
-  mutate(loc_hhld_long = loc_hhld_long + sample( (1:10e5)/10e8, size = nrow(.))) %>% 
-  mutate(loc_hhld_long = loc_hhld_long - sample( (1:10e5)/10e8, size = nrow(.))) %>% 
-  mutate(loc_hhld_lat = loc_hhld_lat + sample( (1:10e5)/10e8, size = nrow(.))) %>% 
-  mutate(loc_hhld_lat = loc_hhld_lat - sample( (1:10e5)/10e8, size = nrow(.))) %>% 
   # nudge locations below 3.873 upwards as they are falling off plot area
   mutate(loc_hhld_lat = ifelse(loc_hhld_lat < 3.873, loc_hhld_lat + 0.001, loc_hhld_lat)) %>% 
   mutate(loc_hhld_long = ifelse(loc_hhld_long > 11.513, loc_hhld_long - 0.001, loc_hhld_long)) %>% 
